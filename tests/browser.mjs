@@ -171,7 +171,8 @@ try {
  console.log('PASS: one large body code; depth approach, peek, dodge, reveal, retreat; stable square QR; immediate clear; hide rejection; retained damage; repeated Enter scans; duplicate delivery; help isolation; reconnect; second TV; deadline; camp; saved results; resets; alternating and solo; fullscreen; reduced motion; escaped names; responsive capture.');
 }catch(error){
  if(process.env.GITHUB_OUTPUT){
-  const summary=String(error.message).replace(/[\r\n]+/g,' ').slice(0,230);
+  const line=String(error.stack).match(/tests\/browser\.mjs:(\d+):/);
+  const summary=('Line '+(line?.[1]||'?')+' · '+String(error.message).replace(/[\r\n]+/g,' ')).slice(0,230);
   await appendFile(process.env.GITHUB_OUTPUT,'error='+summary+'\n');
  }
  throw error;
