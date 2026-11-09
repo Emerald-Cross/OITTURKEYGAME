@@ -17,6 +17,7 @@ const capture=async(page,name)=>{
  if(!process.env.TURKEY_SCREENSHOT_DIR)return;
  await mkdir(process.env.TURKEY_SCREENSHOT_DIR,{recursive:true});
  await page.screenshot({path:join(process.env.TURKEY_SCREENSHOT_DIR,name+'.png'),fullPage:true});
+ if(process.env.TURKEY_REVIEW_SHOTS)await page.screenshot({path:join(process.env.TURKEY_SCREENSHOT_DIR,name+'.jpg'),type:'jpeg',quality:80,fullPage:true});
 };
 try {
  browser=await playwright.chromium.launch({executablePath,headless:true,args:['--no-sandbox']});
