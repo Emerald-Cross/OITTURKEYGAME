@@ -111,7 +111,8 @@ try {
  await r.locator('[data-sim=TKY4]').click();await tv.waitForFunction(()=>document.querySelector('#creature').dataset.hp==='0');
  await reveal(tv,'BEAR');await assertScanArea(tv,440);await capture(tv,'06-bear-reveal');
  for(const client of runtime.io.clients)if(client.data.color==='red')client.close();
- await connected(r);await r.waitForFunction(()=>document.querySelector('#round-status').textContent.includes('50 points'));
+ await r.waitForFunction(()=>document.querySelector('#connection').textContent!=='Connected');
+ await connected(r);await r.waitForFunction(()=>!/Disconnected|Synchronizing/.test(document.querySelector('#capture-status').textContent));await r.waitForFunction(()=>document.querySelector('#round-status').textContent.includes('50 points'));
  await r.locator('[data-sim=BEAR]').click();await tv.waitForFunction(()=>document.querySelector('#red-score').textContent==='90');
  await tv.waitForFunction(()=>document.querySelector('#diagnostic').textContent.includes('server receipt'));
  console.log('Browser software diagnostic:',await tv.locator('#diagnostic').textContent());

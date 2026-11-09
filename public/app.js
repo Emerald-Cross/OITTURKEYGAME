@@ -203,12 +203,12 @@ function render(hit) {
   if (hit) sound.play(hit.killed ? 'clear' : 'hit');
   previousPhase = state.phase;
 }
-socket.on('connect', () => { connected = true; scene?.connection(true); $('connection').textContent = 'Connected'; $('connection').className = 'badge'; updateCapture(); sendPresence(); });
+socket.on('connect', () => { connected = true; scene?.connection(false); $('connection').textContent = 'Connected'; $('connection').className = 'badge'; updateCapture(); sendPresence(); });
 socket.on('disconnect', () => { connected = false; synced = false; scene?.connection(false); $('connection').textContent = 'Disconnected'; $('connection').className = 'badge warning'; updateCapture(); if (role === 'gallery') $('start').disabled = true; });
 socket.on('connect_error', error => { $('connection').textContent = 'Connection issue'; $('connection').className = 'badge warning'; updateCapture(); console.warn(error.message); });
 socket.on('state', packet => {
   const received = performance.now();
-  state = packet.state; synced = true; serverAtSync = state.serverNow; monoAtSync = received;
+  state = packet.state; synced = true; scene?.connection(connected); serverAtSync = state.serverNow; monoAtSync = received;
   render(packet.hit);
   if (role === 'station') sendPresenceIfNeeded();
   if (packet.hit && role === 'gallery') {
