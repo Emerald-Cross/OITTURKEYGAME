@@ -35,6 +35,7 @@ export function createScene({ reducedMotion = false } = {}) {
       creature.dataset.hp = target.hp;
       if (lastHp !== hp) {
         lastHp = hp;
+        creature.setAttribute('aria-label', `${art.name}, ${target.hp} hits remaining, ${target.points} points per hit`);
         $('animal-health').innerHTML = Array.from({ length: target.maxHp }, (_, i) => `<i class="${i < target.hp ? 'full' : ''}"></i>`).join('');
         $('animal-health').setAttribute('aria-label', `${target.hp} of ${target.maxHp} health remaining`);
         $('animal-points').textContent = `${target.hp} ${target.hp === 1 ? 'hit' : 'hits'} left · +${target.points} per hit`;

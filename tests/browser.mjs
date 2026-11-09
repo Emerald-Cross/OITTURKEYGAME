@@ -20,10 +20,7 @@ const capture=async(page,name)=>{
  if(!process.env.TURKEY_SCREENSHOT_DIR)return;
  await mkdir(process.env.TURKEY_SCREENSHOT_DIR,{recursive:true});
  await page.screenshot({path:join(process.env.TURKEY_SCREENSHOT_DIR,name+'.png'),fullPage:true});
- if(process.env.TURKEY_REVIEW_SHOTS && ['01-woodland-lobby','03-gobbler-reveal','05-tom-reveal','06-bear-reveal'].includes(name)){
-  const jpeg=await page.screenshot({type:'jpeg',quality:40});
-  console.log('REVIEW_IMAGE '+name+' '+jpeg.toString('base64'));
- }
+ if(process.env.TURKEY_REVIEW_SHOTS)await page.screenshot({path:join(process.env.TURKEY_SCREENSHOT_DIR,name+'.jpg'),type:'jpeg',quality:80,fullPage:true});
 };
 const connected=p=>p.waitForFunction(()=>document.querySelector('#connection').textContent==='Connected');
 const move=async(value)=>{
@@ -79,7 +76,7 @@ try {
  await g.bringToFront();await g.locator('#arm').click();await g.keyboard.type('TKY1');await g.keyboard.press('Enter');
  await g.waitForFunction(()=>document.querySelector('#last-scan').textContent.includes('inactive'));
  assert.equal(runtime.game.players.green.score,0,'Hidden animals cannot score');
- await reveal(tv);const first=await assertScanArea(tv,340);
+ await reveal(tv);const first=await assertScanArea(tv,440);
  const before=await tv.locator('#creature').evaluate(n=>getComputedStyle(n).transform);
  await tv.waitForTimeout(180);
  assert.equal(await tv.locator('#creature').evaluate(n=>getComputedStyle(n).transform),before,'The reveal pose does not drift');
@@ -88,7 +85,7 @@ try {
  await tv.waitForFunction(()=>document.querySelector('#green-score').textContent==='10');
  assert.equal(await tv.locator('#scan-patch').isVisible(),false,'Lethal damage hides the QR in the message handler');
  await capture(tv,'04-feather-hit');
- await reveal(tv,'TKY4');await assertScanArea(tv,340);await capture(tv,'05-tom-reveal');
+ await reveal(tv,'TKY4');await assertScanArea(tv,440);await capture(tv,'05-tom-reveal');
  await g.keyboard.type('TKY4');await g.keyboard.press('Enter');
  await tv.waitForFunction(()=>document.querySelector('#creature').dataset.hp==='3');
  assert.equal(await tv.locator('#green-score').textContent(),'35');
@@ -109,7 +106,7 @@ try {
  await move(runtime.game.encounter.nextAt);await reveal(tv,'TKY4');
  assert.equal(runtime.game.targets[1].hp,1,'Partial damage survives hiding and returning');
  await r.locator('[data-sim=TKY4]').click();await tv.waitForFunction(()=>document.querySelector('#creature').dataset.hp==='0');
- await reveal(tv,'BEAR');await assertScanArea(tv,340);await capture(tv,'06-bear-reveal');
+ await reveal(tv,'BEAR');await assertScanArea(tv,440);await capture(tv,'06-bear-reveal');
  for(const client of runtime.io.clients)if(client.data.color==='red')client.close();
  await connected(r);await r.waitForFunction(()=>document.querySelector('#round-status').textContent.includes('50 points'));
  await r.locator('[data-sim=BEAR]').click();await tv.waitForFunction(()=>document.querySelector('#red-score').textContent==='90');
@@ -117,11 +114,14 @@ try {
  console.log('Browser software diagnostic:',await tv.locator('#diagnostic').textContent());
  // Join a second TV during the same encounter; both see the same single code.
  const otherTV=await contexts[0].newPage();await otherTV.goto(base+'/gallery');await connected(otherTV);
- await otherTV.locator('#scan-patch').waitFor({state:'visible'});assert.equal(await otherTV.locator('#creature').getAttribute('data-code'),'BEAR');await assertScanArea(otherTV,340);await otherTV.close();
+ await otherTV.locator('#scan-patch').waitFor({state:'visible'});assert.equal(await otherTV.locator('#creature').getAttribute('data-code'),'BEAR');await assertScanArea(otherTV,440);await otherTV.close();
+ for(const client of runtime.io.clients)if(client.data.role==='gallery')client.close();
+ await tv.locator('#scan-patch').waitFor({state:'hidden'});await connected(tv);await tv.locator('#scan-patch').waitFor({state:'visible'});
+ assert.equal(await tv.locator('#creature').getAttribute('data-code'),'BEAR');
  // Every route stays inside the TV at both common workstation and TV resolutions.
- await tv.setViewportSize({width:1440,height:900});await assertScanArea(tv,300);await capture(tv,'07-tv-1440');
+ await tv.setViewportSize({width:1440,height:900});await assertScanArea(tv,370);await capture(tv,'07-tv-1440');
  await tv.setViewportSize({width:1920,height:1080});await tv.bringToFront();await tv.locator('#fullscreen').click();
- await tv.waitForFunction(()=>Boolean(document.fullscreenElement));await assertScanArea(tv,340);
+ await tv.waitForFunction(()=>Boolean(document.fullscreenElement));await assertScanArea(tv,440);
  assert.equal(await tv.evaluate(()=>document.querySelector('.arena').getBoundingClientRect().bottom<=innerHeight),true);
  await capture(tv,'08-fullscreen-hunt');
  // The deadline works while camp is open, and the result dialog is usable afterward.
@@ -150,11 +150,23 @@ try {
  const reducedTV=await reduced.newPage();await reducedTV.goto(base+'/gallery');await connected(reducedTV);await reducedTV.locator('#scan-patch').waitFor({state:'visible'});
  assert.equal(await reducedTV.locator('.falling-leaves').evaluate(e=>getComputedStyle(e).display),'none');
  assert.match(await reducedTV.locator('#creature').evaluate(e=>getComputedStyle(e).transform),/^matrix\(/,'Reduced motion has no perspective transform');
- await assertScanArea(reducedTV,340);await reduced.close();
+ await assertScanArea(reducedTV,440);await reduced.close();
  await r.setViewportSize({width:390,height:844});await capture(r,'10-scanner-mobile');
  for(const p of [tv,r])assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await tv.locator('#finish').click();await tv.waitForFunction(()=>document.querySelector('[data-next]')?.disabled===false);
  assert.match(await tv.locator('.winner-title').textContent(),/<b>Feather Boss<\/b>/);assert.equal(await tv.locator('.winner-title b').count(),0);
+ // Inspect all eight consecutive encounters, including the leftmost Gobbler,
+ // at TV, workstation, and phone sizes rather than only the center pose.
+ await tv.locator('[data-next]').click();await tv.locator('#name-green').fill('Layout G');await tv.locator('#name-red').fill('Layout R');await tv.locator('#start').click();
+ for(let i=0;i<8;i++){
+  await tv.setViewportSize({width:1920,height:1080});await reveal(tv);await assertScanArea(tv,440);
+  await tv.setViewportSize({width:1440,height:900});await assertScanArea(tv,370);
+  await tv.setViewportSize({width:390,height:844});await assertScanArea(tv);
+  if(i===0)await capture(tv,'11-gallery-mobile');
+  assert.equal(await tv.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await move(runtime.game.encounter.nextAt);
+ }
+ await tv.setViewportSize({width:1920,height:1080});await tv.locator('#finish').click();await tv.waitForFunction(()=>document.querySelector('[data-next]')?.disabled===false);
  assert.equal(errors.length,0,errors.join('\n'));
  console.log('PASS: one large body code; depth approach, peek, dodge, reveal, retreat; stable square QR; immediate clear; hide rejection; retained damage; repeated Enter scans; duplicate delivery; help isolation; reconnect; second TV; deadline; camp; saved results; resets; alternating and solo; fullscreen; reduced motion; escaped names; responsive capture.');
 }finally{await browser?.close();await runtime.close();await rm(dir,{recursive:true,force:true});}
