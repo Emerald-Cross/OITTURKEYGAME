@@ -206,6 +206,7 @@ function render(hit) {
     if (state.phase === 'playing') document.querySelector('.arena').scrollIntoView({ block: 'start', behavior: 'instant' });
     else if (state.phase === 'lobby') $('round-setup').scrollIntoView({ block: 'start', behavior: 'instant' });
   }
+  if (previousPhase && previousPhase !== state.phase && state.phase === 'playing') document.querySelector('.arena').focus({ preventScroll: true });
   if (previousPhase && previousPhase !== state.phase) sound.play(state.phase === 'playing' ? 'start' : state.phase === 'results' ? 'results' : '');
   if (hit) sound.play(hit.killed ? 'clear' : 'hit');
   previousPhase = state.phase;

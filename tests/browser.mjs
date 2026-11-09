@@ -41,6 +41,7 @@ try {
  await tv.waitForFunction(()=>document.querySelector('#name-red').value==='Rowan');
  await tv.locator('#start').click();
  await tv.locator('#banner').waitFor({state:'hidden'});
+ await tv.waitForFunction(()=>document.activeElement?.classList.contains('arena'));
  await capture(tv,'02-playing');
  assert.equal(await tv.evaluate(()=>{
   const scene=document.querySelector('.gallery').getBoundingClientRect();
@@ -49,6 +50,7 @@ try {
  await g.bringToFront();await g.locator('#arm').click();await g.keyboard.type('TKY4');await g.keyboard.press('Enter');
  await tv.waitForFunction(()=>document.querySelector('#green-score').textContent==='25');
  assert.equal(await tv.locator('#target-TKY4').getAttribute('data-hp'),'3');
+ assert.equal(await tv.locator('#target-TKY4').evaluate(target=>target.querySelector('.damage').getBoundingClientRect().bottom<=target.querySelector('img').getBoundingClientRect().top),true,'Score feedback must stay clear of the QR area');
  // The new help dialog must not allow scanner input to reach the game behind it.
  await g.locator('#how-to').click();await g.evaluate(()=>document.querySelector('#help-dialog').focus());
  await g.keyboard.type('TKY4');await g.keyboard.press('Enter');

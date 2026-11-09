@@ -1,4 +1,4 @@
-# Verification — November 4, 2026
+# Verification — November 9, 2026
 
 ## Passed in software
 
@@ -21,15 +21,21 @@
 | Diagnostics | Matching hit/frame trace IDs produce software timing metrics using monotonic durations, without cross-device clock subtraction |
 | HTTP | All three pages and QR assets served; private data and source paths unavailable; non-GET methods rejected |
 
-## Not verified here
+## Passed in Chromium
 
-**Browser execution did not complete.** Chromium is installed, but launch failed with `socket() failed: Operation not permitted` before any page loaded. The alternate browser runtime also could not activate because its required runtime credential was not provisioned. No rendering, browser interaction, fullscreen, screenshots, or browser-based timing measurements are claimed.
+The redesigned gallery and both capture pages passed the full Playwright suite in [GitHub Actions run 42676438984](https://github.com/Emerald-Cross/OITTURKEYGAME/actions/runs/42676438984). This uses three independent browser contexts and the actual server, with a controlled test clock to finish rounds without a two-minute wait.
 
-`tests/browser.mjs` is provided for a workstation with Playwright/Chromium. It exercises all three pages, Enter-terminated scans, repeated shots, duplicate simulation, respawn, reconnect, a timed finish using an injected test clock, leaderboard, reset, editable-field capture warnings, and wide/narrow layouts. It has not passed in this environment. Run it before event use and address any failures.
+Verified: Enter-terminated and repeated hardware-style input, shared damage, duplicate delivery, respawn, reconnect, diagnostic delivery, timed finish, completed leaderboard, new-group reset, editing-field capture warnings, loaded artwork, PNG MIME types, help-dialog capture isolation, mode-card selection, alternating turns from red, red solo play, fullscreen play and reset, tied results, escaped player names, reduced-motion behavior, and TV/scanner layout checks. Target cards are checked to fit inside the playing scene, and the 1080p gallery and narrow scanner page are checked for horizontal overflow. Sound defaults to off; synthesized audio quality is not measured by the automated suite.
+
+The CI workflow saves lobby, playing, result, TV, mobile scanner, fullscreen hunt, and fullscreen tie screenshots as the `turkey-hunt-screens` artifact. Set `TURKEY_SCREENSHOT_DIR` to capture these locally. Set `TURKEY_REVIEW_SHOTS=1` to also export JPEG copies. The optional browser test dependency is development-only; the running game still needs no package installation.
+
+## Limits of this verification
+
+The user reports that the existing game's mechanisms have been tested and work perfectly. The engine, scanner buffer, and transport remain unchanged by this presentation update. Local Chromium is blocked by this workspace's Unix-socket policy, so browser verification ran in CI.
 
 **No physical S740 scanner, office network, or cabled TV trial occurred.** No optical-decoding latency, actual input delivery time, real pixel-paint time, or hardware response figure is claimed. The QR SVGs are generated from short payloads; physical scan behavior is unverified.
 
-**No deployment occurred.** No live Render service or Supabase configuration was changed. The source repository is [Emerald-Cross/OITTURKEYGAME](https://github.com/Emerald-Cross/OITTURKEYGAME); publishing source does not deploy a running game. The old Halloween repository is untouched.
+**No hosting configuration was changed.** Publishing source does not independently verify a live Render deployment. No Supabase configuration was changed. The source repository is [Emerald-Cross/OITTURKEYGAME](https://github.com/Emerald-Cross/OITTURKEYGAME); publishing source does not deploy a running game. The old Halloween repository is untouched.
 
 ## Hardware rehearsal
 
@@ -39,3 +45,4 @@
 4. Unplug/reconnect a workstation network connection during a round; wait for recovery. Confirm fresh current state, no queued shots after reconnect, and correct subsequent credit. A physical network failure may take up to the heartbeat timeout to detect; an unconfirmed shot requires checking the TV before rescanning.
 5. Verify alternating and both single-color choices, target respawns, two-minute ending, saved leaderboard, and **Next group**. Restart the server between rounds: completed scores should remain, the active lobby should be new.
 6. Film repeated scans and visible TV response in the same high-frame-rate shot. Compare median and slow cases with the software diagnostics. Test TV game mode/cable/workstation settings on the actual equipment; do not treat software callback timing as measured physical display latency.
+

@@ -39,6 +39,10 @@ If the TV and a scanner share a computer, use extended desktop: leave the galler
 
 ## The field office
 
+![Woodland welcome screen](docs/screenshots/lobby.jpg)
+
+![Fullscreen shooting gallery](docs/screenshots/hunt.jpg)
+
 The gallery starts with a woodland welcome screen. **Get your flock together** jumps to the setup controls. Enter names, choose **Head-to-head**, **Take turns**, or **Solo hunt**, and start. The view returns to the shooting gallery automatically. Each target keeps its original QR payload and white scan area; artwork, health segments, and point feedback surround it.
 
 Use **Full screen** for a TV view. Setup remains available below the welcome screen; during play and results, the TV shows just the gallery and its controls. **Next flock, please** prepares a new group without reconnecting the capture pages. The results screen handles a winner, a tie, and solo play.
