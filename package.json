@@ -11,7 +11,7 @@
     "dev": "npm start",
     "test": "node --test tests/*.test.mjs",
     "test:browser": "node tests/browser.mjs",
-    "check": "node --check server.mjs && node --check public/app.js && node --check public/views.js && node --check public/sound.js && npm test"
+    "check": "node --check server.mjs && node --check public/app.js && node --check public/views.js && node --check public/sound.js && node --check public/scene.js && node --check public/encounters.js && npm test"
   },
   "dependencies": {},
   "devDependencies": {}

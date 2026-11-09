@@ -10,7 +10,7 @@ A small two-player scanner shooting gallery, derived from the scanner capture an
 2. Open a terminal in `OITTURKEYGAME` and run `npm start` (or `node server.mjs`). No package installation, database account, passwords, or build step is required. The WebSocket runtime and licenses are included.
 3. Open `http://localhost:3000/gallery` on the TV workstation. Connect the TV by cable, select the display, and use **Full screen** if desired.
 4. On East, open `http://HOST-IP:3000/scan/green`; on Student Main, open `http://HOST-IP:3000/scan/red`. Replace `HOST-IP` with the server computer's LAN address. All three pages must use the same host. The office network must allow access to port 3000; do not change firewall policy without authorization.
-5. Enter names on the gallery or scanner pages. Choose a mode on the gallery. Click **Arm scanner capture** on each capture page and leave that browser window active. Click **Let’s ruffle some feathers** on the gallery.
+5. Enter names on the gallery or scanner pages. Choose a mode on the gallery. Click **Arm scanner capture** on each capture page and leave that browser window active. Click **Head into the woods**, then **Let’s ruffle some feathers** on the gallery.
 6. Scan on-screen targets. Each scan must end with **Enter / carriage return**. The round ends at two minutes. Final scores are saved automatically. **Next group** clears names, scores, and target health while keeping scanner pages connected.
 7. After the last round shows **Completed scores saved**, stop the server with Ctrl+C. Back up the `data` folder with the game for the next event.
 
@@ -32,22 +32,24 @@ If the TV and a scanner share a computer, use extended desktop: leave the galler
 - **Alternating:** 15-second turns, chosen starting color; eight turns give each player 60 seconds. Target health is shared across turns.
 - **Single player:** choose either green or red; only that player's score enters the leaderboard.
 - **TKY1:** 1 HP, 10 points per hit. **TKY4:** 4 HP, 25 per hit. **BEAR:** 6 HP, 40 per hit. Points belong to the player delivering each hit; the final hit also earns a clearance count, without bonus points.
-- Defeated targets hide their code immediately and return at full health after **1.8 seconds**. Targets drift slowly. Deer and squirrels are scenery with no codes and cannot score. Reduced-motion preferences stop drift.
+- **One animal, one large code.** Animals approach through a perspective woodland, peek out of cover, dodge, and then face the players. The original black-and-white QR appears as a feather or fur patch on the body. It stays square and still for 5.2 seconds (Gobbler), 6.5 seconds (Big Gobbler), or 7.2 seconds (Bear). It disappears before retreating, and immediately on a clearing hit. Only the currently exposed animal can score. Surviving animals retain health across appearances; cleared animals return at full health on a later encounter. Deer and squirrels have no codes. Reduced motion keeps animals stationary with the same scan windows.
 - Fresh repeated scans of a target are legitimate: **no software shot cooldown**. A retry of the same event ID never adds damage.
 - Names are 1–24 visible characters. The leaderboard stores completed results, shows the best 50 overall, and displays eight at once with a mode filter. Early staff-ended rounds are also saved; they are marked in the stored round record.
 - Starting does not require connected scanners, so software simulation and one-scanner setup work. Check capture status before a real round.
 
-## The field office
+## In the woods
 
 ![Woodland welcome screen](docs/screenshots/lobby.jpg)
 
 ![Fullscreen shooting gallery](docs/screenshots/hunt.jpg)
 
-The gallery starts with a woodland welcome screen. **Get your flock together** jumps to the setup controls. Enter names, choose **Head-to-head**, **Take turns**, or **Solo hunt**, and start. The view returns to the shooting gallery automatically. Each target keeps its original QR payload and white scan area; artwork, health segments, and point feedback surround it.
+The TV fills the browser with an illustrated woodland. **Head into the woods** opens camp: enter names, choose **Head-to-head**, **Take turns**, or **Solo hunt**, and start. Camp closes automatically. The scoring HUD floats over the scene; setup and diagnostics stay tucked away under **Camp & scores**. Full screen removes browser chrome.
 
-Use **Full screen** for a TV view. Setup remains available below the welcome screen; during play and results, the TV shows just the gallery and its controls. **Next flock, please** prepares a new group without reconnecting the capture pages. The results screen handles a winner, a tie, and solo play.
+One animal walks up from the background, peeks, dodges, and exposes its body code in the foreground. The scan window remains stationary and unobstructed. A feather puff and points appear immediately after a hit, away from the QR. The same server timeline controls code visibility and scan acceptance on all TVs and capture stations. A new appearance ID protects returning animals from old network deliveries.
 
-**How to play** opens a short field guide. Opening it on a scanner station pauses capture until it closes. **Sound off** is the default; turn it on for short hit and round cues. No audio files, external fonts, or third-party services are required. Reduced-motion preferences disable drift, falling leaves, and decorative animation.
+**Next flock, please** resets the group and reopens camp without reconnecting scanner stations. Results handle a winner, a tie, and solo play.
+
+**How to play** opens a short field guide. Opening it on a scanner station pauses capture until it closes. **Sound off** is the default; turn it on for short hit and round cues. No audio files, external fonts, or third-party services are required. Reduced-motion preferences disable approach/retreat movement, falling leaves, and decorative animation. Codes retain the same scan timing.
 
 ## Test without hardware
 

@@ -20,7 +20,7 @@ Native browser WebSockets and a vendored Faye server replace the old Socket.IO i
 
 - Duplicate event IDs are scoped to a color and round and return the original result with `duplicate: true`; no rebroadcast or new scoring. Rejected submissions are remembered too. The map has a 20,000-submission limit per round; each reset discards it.
 - Fresh IDs allow legitimate repeated shots. There is no time-based target debounce.
-- Every target spawn has a new ID. A packet from before defeat cannot damage the replacement, even if its QR payload is identical.
+- Every animal appearance has a new ID, including a retreating survivor. A packet from a previous appearance cannot damage a returning animal, even if its QR payload is identical.
 - Disconnected clients do not queue scans. Pending acknowledgements fail on disconnect. Unconfirmed accepted hits can still appear on the TV; no automatic replay occurs. A reconnect fetches a full snapshot over the new socket, preserving the server's health and scores. Pings detect dead connections; detection of a physical network failure is not instantaneous.
 - A server restart assigns a new round ID, rejecting packets from the aborted round. Completed leaderboards reload from disk. Active rounds intentionally do not resume.
 - All clients receive the same authoritative state. Multiple capture tabs for one color are reported but not blocked; close extras before play.
@@ -39,3 +39,11 @@ Native browser WebSockets and a vendored Faye server replace the old Socket.IO i
 No cross-device wall-clock subtraction is used for these metrics. The game countdown uses the latest server timestamp as an approximate offset; deadline enforcement always happens on the server. The server retains traces for ten seconds and only accepts matching trace IDs from gallery sockets.
 
 To measure physical response, film scanner trigger/beep and the cabled TV together at high frame rate. Count frames over repeated shots and report median and slow cases, together with the software diagnostics. This adds scanner decoding, OS input delivery, and TV display delay that software instrumentation cannot capture here.
+
+## Single-animal encounters
+
+`public/encounters.js` supplies shared timing and deterministic 3D billboard paths. The server owns the encounter: approach (1.7 s), peek (0.45 s), dodge/settle (0.65 s), stationary reveal (5.2/6.5/7.2 s), retreat (0.85 s), and a short quiet gap. `tick()` activates only the encounter animal during `[revealAt, concealAt)`. A scan also calls `tick()` before validation, so the exact concealment and round deadlines apply even between timer callbacks. Killing the animal ends the exposure synchronously and advances to the next encounter after a 1.25 s puff/quiet transition.
+
+An ordered encounter pattern rotates turkeys and bears through four paths. Partial health survives retreats. A cleared animal recovers full health the next time its species appears. New round identities, duplicate-event handling, scanner buffering, per-hit scoring, and the synchronous WebSocket damage path remain in place.
+
+`public/scene.js` uses the snapshot timeline and a monotonic local clock to animate x/y/z travel, cover, and turns between exposures. The reveal pose is fixed and front facing; the one QR image retains its original payload, four-module quiet zone, pure black/white colors, and square shape. The TV hides codes on exposure expiration even without a fresh packet, on disconnect, at results, and on lethal damage. Reduced motion removes travel and keeps the same server scan windows. Animation never grants points or schedules damage.

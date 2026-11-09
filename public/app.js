@@ -2,6 +2,7 @@ import { createScanner } from '/scanner.js';
 import { connectEvents } from '/transport.js';
 import { galleryView, stationView, helpView, icon, targets as art } from '/views.js';
 import { createSound } from '/sound.js';
+import { createScene } from '/scene.js';
 const $ = id => document.getElementById(id);
 const escape = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const color = location.pathname.match(/^\/scan\/(green|red)$/)?.[1];
@@ -9,7 +10,7 @@ const role = color ? 'station' : 'gallery';
 const socket = connectEvents({ role, ...(color ? { color } : {}) });
 let state, connected = false, synced = false, armed = false, simulatedLast = null, seq = 0;
 let nameDirty = false, noticeTimer, lastBoard = '', lastRound = null;
-let lastBanner = '', lastPresenceView = '', previousPhase = null;
+let lastBanner = '', lastPresenceView = '', previousPhase = null, scene;
 const sound = createSound();
 const modeNames = { simultaneous: 'Head-to-head', alternating: 'Take turns', single: 'Solo hunt' };
 $('help-dialog').innerHTML = helpView();
@@ -43,10 +44,18 @@ $('fullscreen').onclick = () => {
 };
 if (role === 'gallery') {
   document.body.dataset.phase = 'lobby';
+  document.body.classList.add('gallery-page');
   $('app').innerHTML = galleryView();
+  scene = createScene({ reducedMotion });
+  $('camp').hidden = false;
+  $('camp').onclick = () => $('setup-dialog').showModal();
+  $('close-setup').onclick = () => $('setup-dialog').close();
   document.querySelectorAll('[data-mode]').forEach(button => button.onclick = () => { $('mode').value = button.dataset.mode; updateMode(); });
   $('mode').onchange = updateMode;
-  $('banner').addEventListener('click', event => { if (event.target.closest('[data-next]')) emitAck('control', { action: 'reset' }); });
+  $('banner').addEventListener('click', event => {
+    if (event.target.closest('[data-next]')) emitAck('control', { action: 'reset' });
+    if (event.target.closest('[data-setup]')) $('setup-dialog').showModal();
+  });
   $('setup-form').onsubmit = event => {
     event.preventDefault(); emitAck('control', { action: 'start', mode: $('mode').value, singleColor: $('chosen-color').value, firstColor: $('chosen-color').value,
       names: { green: $('name-green').value.trim(), red: $('name-red').value.trim() } });
@@ -132,7 +141,7 @@ function renderBanner() {
   if (key === lastBanner) return; lastBanner = key;
   if (state.phase === 'lobby') {
     $('banner').className = 'banner lobby-banner';
-    $('banner').innerHTML = `<div class="lobby-copy"><p class="eyebrow hero-kicker"><span class="live-dot"></span> OPEN SEASON ON OFFICE BRAGGING RIGHTS</p><h2>Oh, it’s<br><em>on.</em></h2><p>Two minutes. Two scanners.<br>A whole lot of questionable turkey decisions.</p><a href="#round-setup" class="primary hero-cta">Get your flock together ${icon('arrow')}</a><div class="hero-steps"><span><b>01</b> Grab a scanner</span><span><b>02</b> Aim at a code</span><span><b>03</b> Claim the glory</span></div></div><div class="hero-character" aria-hidden="true"><span class="speech-bubble">This meeting could<br>have been a gobble.</span><div class="sprite tom hero-tom"></div><span class="character-caption">CURRENTLY OUT OF OFFICE.</span></div>`;
+    $('banner').innerHTML = `<div class="lobby-copy"><p class="eyebrow hero-kicker">OIT · TURKEY HUNT · AUTUMN ’26</p><h1>Something’s<br><em>gobbling.</em></h1><p>Two scanners. One clearing.<br>Try not to get outsmarted by a turkey.</p><button type="button" data-setup class="primary hero-cta">Head into the woods ${icon('arrow')}</button><div class="hero-steps"><span>Watch the trees.</span><span>Scan when they step out.</span><span>Ruffle feathers.</span></div></div><div class="hero-character" aria-hidden="true"><span class="speech-bubble">You saw<br>nothing.</span><div class="sprite tom hero-tom"></div></div><span class="woodland-location">DEEP IN THE WOODS. MILDLY OUT OF OUR DEPTH.</span>`;
   } else {
     const players = Object.values(state.players).filter(p => state.mode !== 'single' || p.color === state.singleColor).sort((a,b)=>b.score-a.score);
     const tied = players.length > 1 && players[0].score === players[1].score;
@@ -176,24 +185,7 @@ function render(hit) {
   }
   if (lastRound !== state.roundId) { $('mode').value = state.mode; $('chosen-color').value = state.firstColor; $('hit-feedback').textContent = 'The woods are quiet. Suspiciously quiet.'; updateMode(); }
   lastRound = state.roundId;
-  for (const t of state.targets) {
-    const node = $('target-' + t.code); node.classList.toggle('active', t.active);
-    const changed = node.dataset.hp !== String(t.hp);
-    node.dataset.hp = t.hp; node.dataset.spawn = t.spawnId;
-    node.setAttribute('aria-hidden', String(!t.active));
-    node.classList.toggle('cleared', state.phase === 'playing' && !t.active);
-    if (changed) node.querySelector('.health').innerHTML = Array.from({ length:t.maxHp }, (_,i) => `<i class="${i<t.hp?'full':''}"></i>`).join('');
-    node.querySelector('.health').setAttribute('aria-label', `${t.hp} of ${t.maxHp} health`);
-    node.querySelector('.points').textContent = `+${t.points} / HIT`;
-    if (hit?.code === t.code) {
-      clearTimeout(node.hitTimer); node.classList.remove('hit');
-      // Restart decorative animation only; the score and health above are already applied.
-      node.getAnimations?.({ subtree: true }).forEach(animation => animation.cancel());
-      node.classList.add('hit'); node.style.setProperty('--hit', hit.color === 'green' ? 'var(--green)' : 'var(--red)');
-      const badge = node.querySelector('.damage'); badge.textContent = `+${hit.points}`; badge.hidden = false;
-      node.hitTimer = setTimeout(() => { node.classList.remove('hit'); badge.hidden = true; }, 650);
-    } else if (state.phase !== 'playing') { node.classList.remove('hit'); node.querySelector('.damage').hidden = true; }
-  }
+  scene.update(state, hit);
   renderBanner();
   renderPresence();
   $('save-status').textContent = state.phase !== 'results' && state.persistence === 'saved' ? 'Scanner pages stay connected between groups.' : state.persistence === 'saved' ? 'Completed scores saved.' : state.persistence === 'saving' ? 'Saving completed scores…' : 'Score saving failed. Keep the server running; retrying automatically.';
@@ -202,17 +194,17 @@ function render(hit) {
     const player = $('player-'+hit.color); clearTimeout(player.scoreTimer); player.classList.add('scored'); player.scoreTimer = setTimeout(() => player.classList.remove('scored'), 300);
   }
   renderBoard();
-  if (previousPhase && previousPhase !== state.phase && !document.fullscreenElement) {
-    if (state.phase === 'playing') document.querySelector('.arena').scrollIntoView({ block: 'start', behavior: 'instant' });
-    else if (state.phase === 'lobby') $('round-setup').scrollIntoView({ block: 'start', behavior: 'instant' });
+  if (previousPhase !== state.phase) {
+    if (state.phase === 'playing' || state.phase === 'results') $('setup-dialog').close();
+    else if (previousPhase === 'results') $('setup-dialog').showModal();
+    if (state.phase === 'playing') document.querySelector('.arena').focus({ preventScroll: true });
   }
-  if (previousPhase && previousPhase !== state.phase && state.phase === 'playing') document.querySelector('.arena').focus({ preventScroll: true });
   if (previousPhase && previousPhase !== state.phase) sound.play(state.phase === 'playing' ? 'start' : state.phase === 'results' ? 'results' : '');
   if (hit) sound.play(hit.killed ? 'clear' : 'hit');
   previousPhase = state.phase;
 }
-socket.on('connect', () => { connected = true; $('connection').textContent = 'Connected'; $('connection').className = 'badge'; updateCapture(); sendPresence(); });
-socket.on('disconnect', () => { connected = false; synced = false; $('connection').textContent = 'Disconnected'; $('connection').className = 'badge warning'; updateCapture(); if (role === 'gallery') $('start').disabled = true; });
+socket.on('connect', () => { connected = true; scene?.connection(true); $('connection').textContent = 'Connected'; $('connection').className = 'badge'; updateCapture(); sendPresence(); });
+socket.on('disconnect', () => { connected = false; synced = false; scene?.connection(false); $('connection').textContent = 'Disconnected'; $('connection').className = 'badge warning'; updateCapture(); if (role === 'gallery') $('start').disabled = true; });
 socket.on('connect_error', error => { $('connection').textContent = 'Connection issue'; $('connection').className = 'badge warning'; updateCapture(); console.warn(error.message); });
 socket.on('state', packet => {
   const received = performance.now();
@@ -243,10 +235,7 @@ function animate() {
     $('phase').textContent = state.phase === 'playing' ? state.mode === 'alternating' ? `${state.turn?.toUpperCase()} TURN · ${Math.ceil((state.turnMs-(now-state.startedAt)%state.turnMs)/1000)}s` : state.mode === 'single' ? `${state.singleColor.toUpperCase()} ONLY` : 'BOTH SCANNERS LIVE' : state.phase === 'results' ? 'ROUND COMPLETE' : 'PREPARE A GROUP';
     $('timer-fill').style.transform = `scaleX(${ms / 120000})`;
     document.querySelector('.clock').classList.toggle('urgent', state.phase === 'playing' && seconds <= 15);
-    if (!reducedMotion) for (const [i,t] of state.targets.entries()) {
-      const angle = ((now - (state.startedAt || serverAtSync)) / 1000 + i*3) / 5;
-      $('target-'+t.code).style.transform = `translate(${Math.sin(angle)*14}px,${Math.cos(angle*.7)*8}px)`;
-    }
+    scene.frame(now);
   }
   requestAnimationFrame(animate);
 }
