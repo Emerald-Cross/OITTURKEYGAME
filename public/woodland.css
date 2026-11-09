@@ -148,3 +148,5 @@
 @media(max-width:760px){.gallery-page .encounter-info{top:140px;left:50%;bottom:auto;transform:translateX(-50%);text-align:center;width:200px;max-width:none}.encounter-info .eyebrow{max-width:none}.encounter-info .health,.window-track{margin-left:auto;margin-right:auto}.encounter-info h2{margin-bottom:7px}.encounter-info>p:last-of-type{margin:6px 0 9px}}
 
 .gallery-page .hud:before{content:"";position:absolute;inset:-30px -6vw -30px;z-index:-1;pointer-events:none;background:linear-gradient(#263b2280,transparent)}
+
+@media(max-width:760px){.gallery-page .encounter-cue{display:none}.gallery-page .field-strip{bottom:50px}.gallery-page .field-live{display:none}.gallery-page .end-round{margin-left:auto}}

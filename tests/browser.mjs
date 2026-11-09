@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, access, mkdir } from 'node:fs/promises';
+import { mkdtemp, rm, access, mkdir, appendFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -36,16 +36,16 @@ async function reveal(tv,code=runtime.game.encounter.code){
 async function assertScanArea(tv,minWidth=0){
  const details=await tv.evaluate(()=>{
   const image=document.querySelector('#animal-code'),r=image.getBoundingClientRect(),scene=document.querySelector('.gallery').getBoundingClientRect();
-  const info=document.querySelector('#encounter-info').getBoundingClientRect();
-  return {width:r.width,height:r.height,fits:r.left>=scene.left&&r.right<=scene.right&&r.top>=scene.top&&r.bottom<=scene.bottom,
-   overlapsInfo:r.left<info.right&&r.right>info.left&&r.top<info.bottom&&r.bottom>info.top,
+  const overlapsUI=[...document.querySelectorAll('#encounter-info,#encounter-cue,.hud,header,.field-strip')].filter(n=>{if(!n.checkVisibility())return false;const b=n.getBoundingClientRect();return r.left<b.right&&r.right>b.left&&r.top<b.bottom&&r.bottom>b.top;}).map(n=>n.id||n.className);
+  return {code:document.querySelector('#creature').dataset.code,viewport:[innerWidth,innerHeight],width:r.width,height:r.height,fits:r.left>=scene.left&&r.right<=scene.right&&r.top>=scene.top&&r.bottom<=scene.bottom,
+   overlapsUI,
    count:[...document.querySelectorAll('img[src^="/qr/"]')].filter(n=>n.checkVisibility()).length,
    style:{transform:getComputedStyle(image).transform,filter:getComputedStyle(image).filter,opacity:getComputedStyle(image).opacity},
    rect:{x:r.x,y:r.y,w:r.width,h:r.height}};
  });
  assert.equal(details.count,1,'Exactly one QR is visible');
- assert.equal(details.fits,true,'The entire QR, including its quiet zone, fits in the scene');
- assert.equal(details.overlapsInfo,false,'Health and animal labels cannot cover the code');
+ assert.equal(details.fits,true,'QR bounds: '+JSON.stringify(details));
+ assert.equal(details.overlapsUI.length,0,'QR overlay: '+JSON.stringify(details));
  assert.ok(Math.abs(details.width-details.height)<.1,'The QR grid is square');
  assert.ok(details.width>=minWidth,`QR ${details.width}px should be at least ${minWidth}px wide`);
  assert.equal(details.style.transform,'none');assert.equal(details.style.filter,'none');assert.equal(details.style.opacity,'1');
@@ -169,4 +169,10 @@ try {
  await tv.setViewportSize({width:1920,height:1080});await tv.locator('#finish').click();await tv.waitForFunction(()=>document.querySelector('[data-next]')?.disabled===false);
  assert.equal(errors.length,0,errors.join('\n'));
  console.log('PASS: one large body code; depth approach, peek, dodge, reveal, retreat; stable square QR; immediate clear; hide rejection; retained damage; repeated Enter scans; duplicate delivery; help isolation; reconnect; second TV; deadline; camp; saved results; resets; alternating and solo; fullscreen; reduced motion; escaped names; responsive capture.');
+}catch(error){
+ if(process.env.GITHUB_OUTPUT){
+  const summary=String(error.message).replace(/[\r\n]+/g,' ').slice(0,230);
+  await appendFile(process.env.GITHUB_OUTPUT,'error='+summary+'\n');
+ }
+ throw error;
 }finally{await browser?.close();await runtime.close();await rm(dir,{recursive:true,force:true});}
