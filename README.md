@@ -51,7 +51,7 @@ One animal walks up from the background, peeks, dodges, and exposes its body cod
 
 ## Test without hardware
 
-Start a round, then expand **Test without a scanner** on each capture page. Click **Scan TKY1**, **Scan TKY4**, or **Scan BEAR**. Both colors use the same server hit handler as hardware.
+Start a round, then expand **Test without a scanner** on each capture page. Click **Scan TKY1**, **Scan TKY4**, or **Scan BEAR** while that animal is exposing its code. Hidden animals are intentionally rejected. Both colors use the same server hit handler as hardware.
 
 With capture armed and the simulator open, keys **1**, **4**, and **B** trigger simulated shots. Keep the simulator closed during real scanner use. **Repeat last network delivery** resends the identical event ID: health and score must stay unchanged. Alternatively, with the simulator closed, type `TKY4` then press Enter to exercise scanner buffering.
 

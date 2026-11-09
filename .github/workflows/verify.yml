@@ -10,8 +10,6 @@ permissions:
 
 jobs:
   game:
-    outputs:
-      browser_error: ${{ steps.browser.outputs.error }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -24,7 +22,6 @@ jobs:
       - name: Install browser test tools
         run: npm install --no-save playwright@1.62.1 && npx playwright install --with-deps chromium
       - name: Browser gameplay and visual checks
-        id: browser
         run: npm run test:browser
         env:
           TURKEY_SCREENSHOT_DIR: test-results
@@ -36,11 +33,3 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
           retention-days: 7
-
-  browser-failure:
-    needs: game
-    if: ${{ failure() && needs.game.outputs.browser_error != '' }}
-    name: "Browser failure · ${{ needs.game.outputs.browser_error }}"
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo 'See the game job for the browser error and captured screenshots.'

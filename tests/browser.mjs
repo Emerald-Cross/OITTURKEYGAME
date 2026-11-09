@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, access, mkdir, appendFile } from 'node:fs/promises';
+import { mkdtemp, rm, access, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -77,7 +77,7 @@ try {
  await g.bringToFront();await g.locator('#arm').click();await g.keyboard.type('TKY1');await g.keyboard.press('Enter');
  await g.waitForFunction(()=>document.querySelector('#last-scan').textContent.includes('inactive'));
  assert.equal(runtime.game.players.green.score,0,'Hidden animals cannot score');
- await reveal(tv);const first=await assertScanArea(tv,440);
+ await reveal(tv);await assertScanArea(tv,440);
  const before=await tv.locator('#creature').evaluate(n=>getComputedStyle(n).transform);
  await tv.waitForTimeout(180);
  assert.equal(await tv.locator('#creature').evaluate(n=>getComputedStyle(n).transform),before,'The reveal pose does not drift');
@@ -173,11 +173,4 @@ try {
  await tv.setViewportSize({width:1920,height:1080});await tv.locator('#finish').click();await tv.waitForFunction(()=>document.querySelector('[data-next]')?.disabled===false);
  assert.equal(errors.length,0,errors.join('\n'));
  console.log('PASS: one large body code; depth approach, peek, dodge, reveal, retreat; stable square QR; immediate clear; hide rejection; retained damage; repeated Enter scans; duplicate delivery; help isolation; reconnect; second TV; deadline; camp; saved results; resets; alternating and solo; fullscreen; reduced motion; escaped names; responsive capture.');
-}catch(error){
- if(process.env.GITHUB_OUTPUT){
-  const line=String(error.stack).match(/tests\/browser\.mjs:(\d+):/);
-  const summary=('Line '+(line?.[1]||'?')+' · '+String(error.message).replace(/[\r\n]+/g,' ')).slice(0,230);
-  await appendFile(process.env.GITHUB_OUTPUT,'error='+summary+'\n');
- }
- throw error;
 }finally{await browser?.close();await runtime.close();await rm(dir,{recursive:true,force:true});}
