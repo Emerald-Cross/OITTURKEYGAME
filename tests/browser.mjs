@@ -55,6 +55,7 @@ try {
  browser=await playwright.chromium.launch({executablePath,headless:true,args:['--no-sandbox']});
  const contexts=await Promise.all([0,1,2].map(()=>browser.newContext({viewport:{width:1920,height:1080}})));
  const [tv,g,r]=await Promise.all(contexts.map(c=>c.newPage()));
+ await tv.clock.install(); // Install before app initialization, preserving monotonic clock offsets.
  for(const p of [tv,g,r])p.on('pageerror',e=>errors.push(e.message));
  await tv.goto(base+'/gallery');await g.goto(base+'/scan/green');await r.goto(base+'/scan/red');
  await Promise.all([tv,g,r].map(connected));
@@ -100,7 +101,9 @@ try {
  await r.locator('#simulator summary').click();await r.locator('#duplicate').click();await r.waitForFunction(()=>document.querySelector('#last-scan').textContent.includes('duplicate'));
  assert.equal(runtime.game.targets[1].hp,1);
  // Expiration hides the QR locally even before a concealment packet arrives.
- await tv.clock.install();await tv.clock.fastForward(15000);assert.equal(await tv.locator('#scan-patch').isVisible(),false);await tv.clock.resume();
+ await tv.waitForTimeout(100);await tv.clock.fastForward(15000);
+ await tv.waitForFunction(()=>document.querySelector('#scan-patch').hidden);
+ assert.equal(runtime.game.targets[1].active,true,'The TV expires the code without a server concealment packet');
  await move(runtime.game.encounter.concealAt);assert.equal(runtime.game.targets[1].active,false);
  await r.locator('[data-sim=TKY4]').click();await r.waitForFunction(()=>document.querySelector('#last-scan').textContent.includes('inactive'));
  await move(runtime.game.encounter.nextAt);await reveal(tv,'TKY4');
