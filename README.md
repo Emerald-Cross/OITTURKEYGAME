@@ -2,7 +2,7 @@
 
 A small two-player scanner shooting gallery, derived from the scanner capture and Node event model in [ghostpatrolmk1](https://github.com/Emerald-Cross/ghostpatrolmk1). The Halloween repository is untouched.
 
-**Three pages. One TV. Green and red scanners. Immediate authoritative damage over WebSockets.** Graphics and gameplay values are provisional.
+**Three pages. One TV. Green and red scanners. Immediate authoritative damage over WebSockets.** The gallery uses an illustrated autumn woodland, with matching hunter stations and optional synthesized sound.
 
 ## Start
 
@@ -10,7 +10,7 @@ A small two-player scanner shooting gallery, derived from the scanner capture an
 2. Open a terminal in `OITTURKEYGAME` and run `npm start` (or `node server.mjs`). No package installation, database account, passwords, or build step is required. The WebSocket runtime and licenses are included.
 3. Open `http://localhost:3000/gallery` on the TV workstation. Connect the TV by cable, select the display, and use **Full screen** if desired.
 4. On East, open `http://HOST-IP:3000/scan/green`; on Student Main, open `http://HOST-IP:3000/scan/red`. Replace `HOST-IP` with the server computer's LAN address. All three pages must use the same host. The office network must allow access to port 3000; do not change firewall policy without authorization.
-5. Enter names on the gallery or scanner pages. Choose a mode on the gallery. Click **Arm scanner capture** on each capture page and leave that browser window active. Click **Start 2-minute round** on the gallery.
+5. Enter names on the gallery or scanner pages. Choose a mode on the gallery. Click **Arm scanner capture** on each capture page and leave that browser window active. Click **Let’s ruffle some feathers** on the gallery.
 6. Scan on-screen targets. Each scan must end with **Enter / carriage return**. The round ends at two minutes. Final scores are saved automatically. **Next group** clears names, scores, and target health while keeping scanner pages connected.
 7. After the last round shows **Completed scores saved**, stop the server with Ctrl+C. Back up the `data` folder with the game for the next event.
 
@@ -25,7 +25,7 @@ If the TV and a scanner share a computer, use extended desktop: leave the galler
 | `/scan/red` | Red scanner capture; Student Main workstation |
 | `/healthz` | Server health and score-save status |
 
-## Provisional gameplay
+## Gameplay
 
 - **Two-minute hard deadline.** Both players shoot at the same target health. First arrival at the server is applied first.
 - **Together:** both scanners score throughout the round.
@@ -36,6 +36,14 @@ If the TV and a scanner share a computer, use extended desktop: leave the galler
 - Fresh repeated scans of a target are legitimate: **no software shot cooldown**. A retry of the same event ID never adds damage.
 - Names are 1–24 visible characters. The leaderboard stores completed results, shows the best 50 overall, and displays eight at once with a mode filter. Early staff-ended rounds are also saved; they are marked in the stored round record.
 - Starting does not require connected scanners, so software simulation and one-scanner setup work. Check capture status before a real round.
+
+## The field office
+
+The gallery starts with a woodland welcome screen. **Get your flock together** jumps to the setup controls. Enter names, choose **Head-to-head**, **Take turns**, or **Solo hunt**, and start. The view returns to the shooting gallery automatically. Each target keeps its original QR payload and white scan area; artwork, health segments, and point feedback surround it.
+
+Use **Full screen** for a TV view. Setup remains available below the welcome screen; during play and results, the TV shows just the gallery and its controls. **Next flock, please** prepares a new group without reconnecting the capture pages. The results screen handles a winner, a tie, and solo play.
+
+**How to play** opens a short field guide. Opening it on a scanner station pauses capture until it closes. **Sound off** is the default; turn it on for short hit and round cues. No audio files, external fonts, or third-party services are required. Reduced-motion preferences disable drift, falling leaves, and decorative animation.
 
 ## Test without hardware
 
@@ -62,3 +70,4 @@ The TV applies health and score changes in its message handler, then flashes the
 Capture diagnostics show **Enter/click → acknowledgement** round trip. Gallery diagnostics show server handler duration, browser DOM update duration, receipt → requestAnimationFrame callback, and server receipt → TV frame callback → server return. These are software measurements. They **exclude optical decoding and physical TV response**, and a frame callback does not prove that pixels have appeared. No subtraction of clocks on different computers is used. See [architecture](docs/ARCHITECTURE.md).
 
 Actual S740 keyboard output, repeated-scan behavior, browser focus on the event workstations, office-network connections, and cabled TV response still need rehearsal.
+

@@ -25,7 +25,7 @@ export async function createRuntime({ dataDir = resolve(root, 'data'), clock = D
     try {
       const body = await readFile(file);
       const ext = path.split('.').at(-1);
-      res.setHeader('Content-Type', ({ html:'text/html', css:'text/css', js:'text/javascript', svg:'image/svg+xml' })[ext] || 'application/octet-stream');
+      res.setHeader('Content-Type', ({ html:'text/html', css:'text/css', js:'text/javascript', svg:'image/svg+xml', png:'image/png', webp:'image/webp' })[ext] || 'application/octet-stream');
       res.end(body);
     } catch { res.writeHead(404); res.end('Not found'); }
   };
@@ -118,3 +118,4 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   console.log(`OIT Turkey Shoot: http://localhost:${process.env.PORT || 3000}/gallery`);
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { await runtime.close(); process.exit(runtime.scores.status === 'error' ? 1 : 0); });
 }
+

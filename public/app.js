@@ -1,5 +1,7 @@
 import { createScanner } from '/scanner.js';
 import { connectEvents } from '/transport.js';
+import { galleryView, stationView, helpView, icon, targets as art } from '/views.js';
+import { createSound } from '/sound.js';
 const $ = id => document.getElementById(id);
 const escape = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const color = location.pathname.match(/^\/scan\/(green|red)$/)?.[1];
@@ -7,6 +9,20 @@ const role = color ? 'station' : 'gallery';
 const socket = connectEvents({ role, ...(color ? { color } : {}) });
 let state, connected = false, synced = false, armed = false, simulatedLast = null, seq = 0;
 let nameDirty = false, noticeTimer, lastBoard = '', lastRound = null;
+let lastBanner = '', lastPresenceView = '', previousPhase = null;
+const sound = createSound();
+const modeNames = { simultaneous: 'Head-to-head', alternating: 'Take turns', single: 'Solo hunt' };
+$('help-dialog').innerHTML = helpView();
+$('how-to').innerHTML = icon('help') + '<span>How to play</span>';
+$('how-to').onclick = () => { $('help-dialog').showModal(); if (role === 'station') { updateCapture(); sendPresence(); } };
+$('help-dialog').addEventListener('close', () => { if (role === 'station') { updateCapture(); sendPresence(); } });
+$('close-help').onclick = () => $('help-dialog').close();
+$('help-dialog').addEventListener('click', event => { if (event.target === $('help-dialog')) { const rect = event.target.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) event.target.close(); } });
+$('sound').innerHTML = icon('mute') + '<span>Sound off</span>';
+$('sound').onclick = () => { const on = sound.toggle(); $('sound').setAttribute('aria-pressed', String(on)); $('sound').setAttribute('aria-label', on ? 'Turn sound off' : 'Turn sound on'); $('sound').innerHTML = icon(on ? 'sound' : 'mute') + `<span>Sound ${on ? 'on' : 'off'}</span>`; if (on) sound.play('hit'); };
+$('fullscreen').innerHTML = icon('expand') + '<span>Full screen</span>';
+document.querySelector('.brand-mark').innerHTML = icon('feather');
+document.addEventListener('fullscreenchange', () => { $('fullscreen').setAttribute('aria-label', document.fullscreenElement ? 'Exit full screen' : 'Full screen'); $('fullscreen').innerHTML = icon('expand') + `<span>${document.fullscreenElement ? 'Exit full screen' : 'Full screen'}</span>`; });
 const randomId = () => [...crypto.getRandomValues(new Uint32Array(4))].map(n => n.toString(16)).join('-');
 const instanceId = randomId(); // Works on LAN HTTP without crypto.randomUUID's secure-context restriction.
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -26,25 +42,11 @@ $('fullscreen').onclick = () => {
   attempt?.catch(() => notify('Full screen is unavailable in this browser.'));
 };
 if (role === 'gallery') {
-  $('app').innerHTML = `
-    <section class="hud" aria-label="Live scores">
-      <div class="player green"><div><small>GREEN · <span id="green-name">Player</span></small><strong id="green-score">0</strong></div><small id="green-hits">0 hits</small></div>
-      <div class="clock"><strong id="clock">02:00</strong><small id="phase">PREPARE A GROUP</small></div>
-      <div class="player red"><small id="red-hits">0 hits</small><div><small>RED · <span id="red-name">Player</span></small><strong id="red-score">0</strong></div></div>
-    </section>
-    <section class="gallery" aria-label="Shooting gallery">
-      ${['TKY1','TKY4','BEAR'].map(code => `<article class="target" data-code="${code}" id="target-${code}"><div class="animal" aria-hidden="true">${code === 'BEAR' ? '🐻' : '🦃'}</div><div class="card"><span class="damage" hidden></span><img src="/qr/${code}.svg" alt="Scan target ${code}" draggable="false"><div class="health" aria-label="Target health"></div><div class="label"><span>${code}</span><span class="points"></span></div></div></article>`).join('')}
-      <div class="mob" aria-hidden="true">🐿️<span>JUST PASSING THROUGH</span></div><div class="mob second" aria-hidden="true">🦌<span>JUST PASSING THROUGH</span></div>
-      <div id="banner" class="banner"><p class="eyebrow">TWO SCANNERS. TWO MINUTES.</p><h2>Turkey Shoot</h2><p>Enter names below, open each scanner page, and start a round.</p></div>
-    </section>
-    <div id="hit-feedback" class="feedback" aria-live="polite">Ready when you are.</div>
-    <div class="below"><section class="panel"><h2>Round controls</h2>
-      <form id="setup-form"><div class="row"><label>Green player<input id="name-green" maxlength="24" placeholder="Player name" autocomplete="off"></label><label>Red player<input id="name-red" maxlength="24" placeholder="Player name" autocomplete="off"></label></div>
-      <div class="row"><label>Play mode<select id="mode"><option value="simultaneous">Together · simultaneous</option><option value="alternating">Take turns · 15 seconds each</option><option value="single">Single player</option></select></label><label id="color-choice-label">First turn / single scanner<select id="chosen-color"><option value="green">Green</option><option value="red">Red</option></select></label></div><button id="start" type="submit">Start 2-minute round</button></form>
-      <div class="row"><button id="finish" class="quiet" hidden>End round</button><button id="reset" hidden>Next group</button><button id="retry-save" class="quiet" hidden>Retry score save</button></div>
-      <div id="presence" class="presence"></div><div class="links"><a href="/scan/green" target="_blank" rel="noopener">Green scanner · East ↗</a><a href="/scan/red" target="_blank" rel="noopener">Red scanner · Student Main ↗</a></div>
-      <p id="save-status" class="muted"></p><details><summary>Timing & setup notes</summary><div id="diagnostic" class="diag">Waiting for a hit…</div><p class="muted">Timing measures software only. The frame callback is a scheduling proxy; it does not measure optical decoding, physical paint, cable or TV delay. Keep each capture browser focused. One active capture tab per scanner.</p><p class="muted">Each hit earns points: TKY1 = 10 (1 HP), TKY4 = 25 (4 HP), BEAR = 40 (6 HP). Targets return 1.8 seconds after defeat. Squirrels and deer have no codes.</p></details>
-      </section><section class="panel"><div class="row"><h2>All-time leaderboard</h2><label>Mode<select id="board-mode"><option value="all">All modes</option><option value="simultaneous">Together</option><option value="alternating">Alternating</option><option value="single">Single player</option></select></label></div><table><thead><tr><th>#</th><th>Player / mode</th><th>Points</th></tr></thead><tbody id="board"></tbody></table><p class="muted">Completed rounds · best 50 scores · saved on the host.</p></section></div>`;
+  document.body.dataset.phase = 'lobby';
+  $('app').innerHTML = galleryView();
+  document.querySelectorAll('[data-mode]').forEach(button => button.onclick = () => { $('mode').value = button.dataset.mode; updateMode(); });
+  $('mode').onchange = updateMode;
+  $('banner').addEventListener('click', event => { if (event.target.closest('[data-next]')) emitAck('control', { action: 'reset' }); });
   $('setup-form').onsubmit = event => {
     event.preventDefault(); emitAck('control', { action: 'start', mode: $('mode').value, singleColor: $('chosen-color').value, firstColor: $('chosen-color').value,
       names: { green: $('name-green').value.trim(), red: $('name-red').value.trim() } });
@@ -54,13 +56,11 @@ if (role === 'gallery') {
   $('reset').onclick = () => emitAck('control', { action: 'reset' });
   $('retry-save').onclick = () => emitAck('control', { action: 'retrySave' });
   $('board-mode').onchange = () => renderBoard(true);
+  $('chosen-color').onchange = updateMode;
 } else {
   document.body.classList.add('scanner-page');
-  $('app').innerHTML = `<section class="station"><div class="station-top ${color}"><div class="color-dot"></div><div><p class="eyebrow">${color === 'green' ? 'EAST COMPUTER' : 'STUDENT MAIN COMPUTER'}</p><h1>${color[0].toUpperCase() + color.slice(1)} scanner</h1><p>Keep this browser window active.</p></div></div>
-    <form id="name-form" class="panel"><label>Your player name<input id="player-name" maxlength="24" placeholder="Enter your name" autocomplete="off"></label><button>Save name</button></form>
-    <section id="capture-box" class="capture-box warning"><h2 id="capture-status">Click to arm capture</h2><p id="round-status">Waiting for the gallery…</p><button id="arm">Arm scanner capture</button><div id="last-scan" role="status" aria-live="polite">No scans yet.</div><div id="scan-diagnostic" class="diag"></div></section>
-    <details id="simulator" class="panel"><summary>Test without a scanner</summary><p>Buttons use the same submission path. During a round, keyboard shortcuts 1, 4, B simulate TKY1, TKY4, BEAR.</p><div class="sim-grid">${['TKY1','TKY4','BEAR'].map(code => `<button type="button" data-sim="${code}">Scan ${code}</button>`).join('')}<button id="duplicate" class="quiet">Repeat last network delivery</button></div></details>
-    <p class="muted">Scanner keyboard output must end with Enter / carriage return. Shots taken while disconnected are discarded. Unconfirmed shots are never automatically replayed. If a shot is unconfirmed, check the TV before scanning again.</p><a href="/gallery" target="_blank" rel="noopener">Open gallery ↗</a></section>`;
+  document.body.dataset.scanner = color;
+  $('app').innerHTML = stationView(color);
   $('name-form').onsubmit = event => { event.preventDefault(); emitAck('name', { name: $('player-name').value }, () => { nameDirty = false; notify('Name saved.'); }); };
   $('player-name').oninput = () => { nameDirty = true; };
   $('arm').onclick = () => { document.activeElement?.blur(); armed = true; scanner.reset(); updateCapture(); sendPresence(); };
@@ -69,7 +69,7 @@ if (role === 'gallery') {
   const scanner = createScanner((payload, at) => submit(payload, at));
   document.addEventListener('keydown', event => {
     if (event.target.closest('input,select,textarea,[contenteditable=true]')) return;
-    if (!armed || !document.hasFocus()) return;
+    if (!armed || !document.hasFocus() || $('help-dialog').open) return;
     if ($('simulator').open && ['1','4','b','B'].includes(event.key) && !event.repeat && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault(); submit(({ '1':'TKY1', '4':'TKY4', b:'BEAR', B:'BEAR' })[event.key], performance.now(), true); return;
     }
@@ -81,13 +81,15 @@ if (role === 'gallery') {
   document.addEventListener('focusin', () => { scanner.reset(); updateCapture(); sendPresence(); });
   document.addEventListener('focusout', () => queueMicrotask(() => { updateCapture(); sendPresence(); }));
 }
-function canCapture() { return armed && document.hasFocus() && !document.hidden && !document.activeElement?.matches('input,select,textarea,[contenteditable=true]'); }
+function canCapture() { return armed && !$('help-dialog').open && document.hasFocus() && !document.hidden && !document.activeElement?.matches('input,select,textarea,[contenteditable=true]'); }
 function sendPresence() { if (role === 'station' && connected) socket.emit('presence', { focused: document.hasFocus() && !document.hidden, armed: canCapture() }); }
 function updateCapture() {
   if (role !== 'station') return;
   const ready = canCapture() && connected && synced;
-  $('capture-status').textContent = !connected ? 'Disconnected — scans discarded' : !synced ? 'Synchronizing…' : !document.hasFocus() || document.hidden ? 'Window inactive — click here to capture' : document.activeElement?.matches('input,select,textarea,[contenteditable=true]') ? 'Editing a field — click Arm when finished' : !armed ? 'Click to arm capture' : 'Capture ready · scan a target';
+  $('capture-status').textContent = !connected ? 'Disconnected — scans discarded' : !synced ? 'Synchronizing…' : !document.hasFocus() || document.hidden ? 'Window inactive — click here to capture' : $('help-dialog').open ? 'Field guide open — close to resume capture' : document.activeElement?.matches('input,select,textarea,[contenteditable=true]') ? 'Editing a field — click Arm when finished' : !armed ? 'Click to arm capture' : 'Capture ready · scan a target';
   $('capture-box').classList.toggle('warning', !ready);
+  $('arm').innerHTML = ready ? icon('check') + 'Capture is armed' : 'Arm scanner capture ' + icon('arrow');
+  $('arm').setAttribute('aria-label', ready ? 'Re-arm scanner capture' : 'Arm scanner capture');
 }
 function submit(payload, at, simulated = false) {
   if (!connected || !synced || !state) { $('last-scan').textContent = 'Disconnected — scan discarded.'; return; }
@@ -107,56 +109,106 @@ function sendShot(shot, at) {
     $('scan-diagnostic').textContent = `Enter/click → acknowledgement ${elapsed.toFixed(1)} ms · server handler ${result.serverProcessMs?.toFixed(2)} ms`;
   });
 }
+function updateMode() {
+  if (role !== 'gallery') return;
+  const mode = $('mode').value;
+  document.querySelectorAll('[data-mode]').forEach(button => { const active = button.dataset.mode === mode; button.classList.toggle('selected', active); button.setAttribute('aria-pressed', String(active)); });
+  $('color-choice-label').hidden = mode === 'simultaneous';
+  $('color-choice-copy').textContent = mode === 'single' ? 'Your scanner' : 'Who goes first?';
+  $('mode-note').textContent = mode === 'single' ? 'One hunter. Two minutes. A very personal vendetta.' : mode === 'alternating' ? 'Swap every 15 seconds. Equal time to cause a flap.' : 'Two hunters. Shared targets. May the fastest scanner win.';
+  for (const c of ['green','red']) { const inactive = mode === 'single' && c !== $('chosen-color').value; $('name-'+c).disabled = inactive; $('name-'+c).closest('label').classList.toggle('inactive', inactive); }
+}
 function renderBoard(force = false) {
   if (role !== 'gallery' || !state) return;
   const mode = $('board-mode').value;
   const rows = state.leaderboard.filter(r => mode === 'all' || r.mode === mode).slice(0,8);
   const key = JSON.stringify(rows); if (!force && key === lastBoard) return; lastBoard = key;
-  $('board').innerHTML = rows.map((r,i) => `<tr><td>${i+1}</td><td><span class="${r.color}">${escape(r.name)}</span><br><small>${escape(r.mode)} · ${escape(r.endedAt.slice(0,10))}</small></td><td><strong>${r.score}</strong></td></tr>`).join('') || '<tr><td colspan="3">Finish a round to post the first score.</td></tr>';
+  $('board').innerHTML = rows.map((r,i) => `<tr><td><span class="rank rank-${i+1}">${String(i+1).padStart(2,'0')}</span></td><td><span class="hunter-name"><i class="hunter-dot ${r.color}"></i>${escape(r.name)}</span><small>${escape(modeNames[r.mode] || r.mode)} · ${escape(r.endedAt.slice(0,10))}</small></td><td><strong>${r.score.toLocaleString()}</strong></td></tr>`).join('') || `<tr><td colspan="3" class="empty-board">${icon('trophy')}<strong>A legend has to start somewhere.</strong><p>Finish a hunt to claim the first spot.<br>The turkeys are rooting against you.</p></td></tr>`;
+}
+function renderBanner() {
+  $('banner').hidden = state.phase === 'playing';
+  if (state.phase === 'playing') { lastBanner = ''; return; }
+  const key = JSON.stringify([state.phase,state.roundId,state.players,state.mode,state.persistence]);
+  if (key === lastBanner) return; lastBanner = key;
+  if (state.phase === 'lobby') {
+    $('banner').className = 'banner lobby-banner';
+    $('banner').innerHTML = `<div class="lobby-copy"><p class="eyebrow hero-kicker"><span class="live-dot"></span> OPEN SEASON ON OFFICE BRAGGING RIGHTS</p><h2>Oh, it’s<br><em>on.</em></h2><p>Two minutes. Two scanners.<br>A whole lot of questionable turkey decisions.</p><a href="#round-setup" class="primary hero-cta">Get your flock together ${icon('arrow')}</a><div class="hero-steps"><span><b>01</b> Grab a scanner</span><span><b>02</b> Aim at a code</span><span><b>03</b> Claim the glory</span></div></div><div class="hero-character" aria-hidden="true"><span class="speech-bubble">This meeting could<br>have been a gobble.</span><div class="sprite tom hero-tom"></div><span class="character-caption">CURRENTLY OUT OF OFFICE.</span></div>`;
+  } else {
+    const players = Object.values(state.players).filter(p => state.mode !== 'single' || p.color === state.singleColor).sort((a,b)=>b.score-a.score);
+    const tied = players.length > 1 && players[0].score === players[1].score;
+    const headline = tied ? 'A very fowl tie.' : 'That’s a wrap.';
+    $('banner').className = 'banner results-banner';
+    $('banner').innerHTML = `<div class="results-copy"><p class="eyebrow">${icon('trophy')} THE FEATHERS HAVE SETTLED</p><h2>${headline}</h2><p class="winner-title">${tied ? 'Shared glory. Double the strutting.' : `${escape(players[0].name)} ${state.mode === 'single' ? 'made feathers fly.' : 'rules the roost.'}`}</p><div class="result-scores">${players.map((p,i)=>`<div class="result-player ${p.color} ${i===0&&!tied?'winner':''}"><small>${escape(p.name)}</small><strong>${p.score.toLocaleString()}<span> PTS</span></strong><p>${p.hits} hits · ${p.kills} cleared</p></div>`).join('')}</div><button class="primary" data-next ${state.persistence!=='saved'?'disabled':''}>Next flock, please ${icon('arrow')}</button><p class="result-note">${state.persistence==='saved'?'Scores saved. Brag responsibly.':state.persistence==='error'?'Score saving failed. Retrying automatically…':'Saving your moment of glory…'}</p></div><div class="results-turkey sprite tom" aria-hidden="true"></div>`;
+  }
+}
+function renderPresence() {
+  const key = JSON.stringify(state.presence); if (key === lastPresenceView) return; lastPresenceView = key;
+  $('presence').innerHTML = ['green','red'].map(c => {
+    const p = state.presence[c];
+    const status = !p.connected ? 'Open & arm scanner' : p.connected > 1 ? 'Close extra capture tabs' : !p.focused ? 'Window inactive' : !p.armed ? 'Click Arm to get ready' : 'Capture ready';
+    const ready = p.connected === 1 && p.focused && p.armed;
+    return `<a class="station-link ${c} ${ready?'ready':''}" href="/scan/${c}" target="_blank" rel="noopener"><span class="station-link-dot"></span><span><strong>${c==='green'?'Green · East':'Red · Student Main'}</strong><small>${status}</small></span>${icon(ready?'check':'external')}</a>`;
+  }).join('');
 }
 function render(hit) {
   if (!state) return;
   if (role === 'station') {
+    if (lastRound !== state.roundId) { nameDirty = false; lastRound = state.roundId; $('last-scan').textContent = 'No feathers ruffled. Yet.'; }
     $('name-form').hidden = state.phase !== 'lobby';
     if (!nameDirty) $('player-name').value = state.players[color].name;
     $('round-status').textContent = state.phase === 'playing' ? `${state.players[color].name || color} · ${state.players[color].score} points · ${state.mode === 'alternating' ? state.turn + "'s turn" : state.mode === 'single' ? state.singleColor + ' only' : 'Both scanners live'}` : state.phase === 'results' ? `Round complete · ${state.players[color].score} points` : 'Waiting for the gallery to start.';
     updateCapture(); return;
   }
   document.body.classList.toggle('playing', state.phase === 'playing');
+  document.body.dataset.phase = state.phase;
+  $('round-summary').hidden = state.phase === 'lobby';
+  if (state.phase !== 'lobby' && previousPhase !== state.phase) $('round-summary').innerHTML = state.phase === 'results' ? '<h3>Good hunt. Great stories.</h3><p>Start a new group when everyone is ready.</p>' : '<h3>The hunt is on.</h3><p>Keep the scanner windows active. Every hit counts.</p>';
   $('setup-form').hidden = state.phase !== 'lobby'; $('finish').hidden = state.phase !== 'playing'; $('reset').hidden = state.phase !== 'results';
   $('retry-save').hidden = state.persistence !== 'error';
   $('reset').disabled = state.persistence !== 'saved';
   $('start').disabled = !connected;
   for (const c of ['green','red']) {
-    const p = state.players[c]; $('' + c + '-name').textContent = p.name || 'Player'; $(c + '-score').textContent = p.score;
+    const p = state.players[c]; $('' + c + '-name').textContent = p.name || (c === 'green' ? 'Green hunter' : 'Red hunter');
+    $('player-' + c).classList.toggle('off-turn', state.phase === 'playing' && (state.mode === 'single' ? c !== state.singleColor : state.mode === 'alternating' && c !== state.turn)); $(c + '-score').textContent = p.score;
     $(c + '-hits').textContent = `${p.hits} hits · ${p.kills} cleared`;
     if (lastRound !== state.roundId || !$('name-' + c).dataset.dirty) $('name-' + c).value = p.name;
     if (lastRound !== state.roundId) delete $('name-' + c).dataset.dirty;
   }
-  if (lastRound !== state.roundId) { $('mode').value = state.mode; $('chosen-color').value = state.firstColor; $('hit-feedback').textContent = 'Ready when you are.'; }
+  if (lastRound !== state.roundId) { $('mode').value = state.mode; $('chosen-color').value = state.firstColor; $('hit-feedback').textContent = 'The woods are quiet. Suspiciously quiet.'; updateMode(); }
   lastRound = state.roundId;
   for (const t of state.targets) {
     const node = $('target-' + t.code); node.classList.toggle('active', t.active);
+    const changed = node.dataset.hp !== String(t.hp);
     node.dataset.hp = t.hp; node.dataset.spawn = t.spawnId;
-    node.querySelector('.health').innerHTML = Array.from({ length:t.maxHp }, (_,i) => `<i class="${i<t.hp?'full':''}"></i>`).join('');
+    node.setAttribute('aria-hidden', String(!t.active));
+    node.classList.toggle('cleared', state.phase === 'playing' && !t.active);
+    if (changed) node.querySelector('.health').innerHTML = Array.from({ length:t.maxHp }, (_,i) => `<i class="${i<t.hp?'full':''}"></i>`).join('');
     node.querySelector('.health').setAttribute('aria-label', `${t.hp} of ${t.maxHp} health`);
-    node.querySelector('.points').textContent = `${t.points}/hit`;
+    node.querySelector('.points').textContent = `+${t.points} / HIT`;
     if (hit?.code === t.code) {
-      clearTimeout(node.hitTimer); node.classList.add('hit'); node.style.setProperty('--hit', hit.color === 'green' ? 'var(--green)' : 'var(--red)');
+      clearTimeout(node.hitTimer); node.classList.remove('hit');
+      // Restart decorative animation only; the score and health above are already applied.
+      node.getAnimations?.({ subtree: true }).forEach(animation => animation.cancel());
+      node.classList.add('hit'); node.style.setProperty('--hit', hit.color === 'green' ? 'var(--green)' : 'var(--red)');
       const badge = node.querySelector('.damage'); badge.textContent = `+${hit.points}`; badge.hidden = false;
-      node.hitTimer = setTimeout(() => { node.classList.remove('hit'); badge.hidden = true; }, 260);
+      node.hitTimer = setTimeout(() => { node.classList.remove('hit'); badge.hidden = true; }, 650);
     } else if (state.phase !== 'playing') { node.classList.remove('hit'); node.querySelector('.damage').hidden = true; }
   }
-  $('banner').hidden = state.phase === 'playing';
-  if (state.phase !== 'playing') {
-    const players = Object.values(state.players).filter(p => state.mode !== 'single' || p.color === state.singleColor).sort((a,b)=>b.score-a.score);
-    const tied = players.length > 1 && players[0].score === players[1].score;
-    $('banner').innerHTML = state.phase === 'lobby' ? '<p class="eyebrow">TWO SCANNERS. TWO MINUTES.</p><h2>Turkey Shoot</h2><p>Enter names below, arm each scanner, and start a round.</p>' : `<p class="eyebrow">ROUND COMPLETE</p><h2>${tied ? 'It’s a tie!' : escape(players[0].name) + ' leads the hunt!'}</h2><p>${players.map(p => `${escape(p.name)}: ${p.score}`).join(' · ')}</p>`;
+  renderBanner();
+  renderPresence();
+  $('save-status').textContent = state.phase !== 'results' && state.persistence === 'saved' ? 'Scanner pages stay connected between groups.' : state.persistence === 'saved' ? 'Completed scores saved.' : state.persistence === 'saving' ? 'Saving completed scores…' : 'Score saving failed. Keep the server running; retrying automatically.';
+  if (hit) {
+    $('hit-feedback').textContent = `${state.players[hit.color].name} · +${hit.points} · ${art[hit.code].name}${hit.killed ? ' — feathers successfully ruffled.' : ` · ${hit.hp} ${hit.hp === 1 ? 'hit' : 'hits'} to clear`}`;
+    const player = $('player-'+hit.color); clearTimeout(player.scoreTimer); player.classList.add('scored'); player.scoreTimer = setTimeout(() => player.classList.remove('scored'), 300);
   }
-  $('presence').textContent = ['green','red'].map(c => { const p=state.presence[c]; return `${c.toUpperCase()}: ${!p.connected ? 'offline' : p.connected > 1 ? p.connected + ' tabs — close extras' : !p.focused ? 'window inactive' : !p.armed ? 'not armed' : 'capture ready'}`; }).join(' · ');
-  $('save-status').textContent = state.persistence === 'saved' ? 'Completed scores saved.' : state.persistence === 'saving' ? 'Saving completed scores…' : 'Score saving failed. Keep the server running; retrying automatically.';
-  if (hit) $('hit-feedback').textContent = `${state.players[hit.color].name} hit ${hit.code} · +${hit.points}${hit.killed ? ' · target cleared!' : ` · ${hit.hp} HP left`}`;
   renderBoard();
+  if (previousPhase && previousPhase !== state.phase && !document.fullscreenElement) {
+    if (state.phase === 'playing') document.querySelector('.arena').scrollIntoView({ block: 'start', behavior: 'instant' });
+    else if (state.phase === 'lobby') $('round-setup').scrollIntoView({ block: 'start', behavior: 'instant' });
+  }
+  if (previousPhase && previousPhase !== state.phase) sound.play(state.phase === 'playing' ? 'start' : state.phase === 'results' ? 'results' : '');
+  if (hit) sound.play(hit.killed ? 'clear' : 'hit');
+  previousPhase = state.phase;
 }
 socket.on('connect', () => { connected = true; $('connection').textContent = 'Connected'; $('connection').className = 'badge'; updateCapture(); sendPresence(); });
 socket.on('disconnect', () => { connected = false; synced = false; $('connection').textContent = 'Disconnected'; $('connection').className = 'badge warning'; updateCapture(); if (role === 'gallery') $('start').disabled = true; });
@@ -188,6 +240,8 @@ function animate() {
     const now = serverNow(); const ms = state.phase === 'lobby' ? 120000 : state.phase === 'playing' ? Math.max(0,state.endsAt-now) : 0;
     const seconds = Math.ceil(ms / 1000); $('clock').textContent = `${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;
     $('phase').textContent = state.phase === 'playing' ? state.mode === 'alternating' ? `${state.turn?.toUpperCase()} TURN · ${Math.ceil((state.turnMs-(now-state.startedAt)%state.turnMs)/1000)}s` : state.mode === 'single' ? `${state.singleColor.toUpperCase()} ONLY` : 'BOTH SCANNERS LIVE' : state.phase === 'results' ? 'ROUND COMPLETE' : 'PREPARE A GROUP';
+    $('timer-fill').style.transform = `scaleX(${ms / 120000})`;
+    document.querySelector('.clock').classList.toggle('urgent', state.phase === 'playing' && seconds <= 15);
     if (!reducedMotion) for (const [i,t] of state.targets.entries()) {
       const angle = ((now - (state.startedAt || serverAtSync)) / 1000 + i*3) / 5;
       $('target-'+t.code).style.transform = `translate(${Math.sin(angle)*14}px,${Math.cos(angle*.7)*8}px)`;
@@ -196,3 +250,4 @@ function animate() {
   requestAnimationFrame(animate);
 }
 requestAnimationFrame(animate);
+

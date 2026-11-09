@@ -1,0 +1,35 @@
+name: Game checks
+
+on:
+  push:
+    branches: [main, 'design/**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  game:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Engine, transport, HTTP, and storage
+        run: npm run check
+      - name: Install browser test tools
+        run: npm install --no-save playwright@1.62.1 && npx playwright install --with-deps chromium
+      - name: Browser gameplay and visual checks
+        run: npm run test:browser
+        env:
+          TURKEY_SCREENSHOT_DIR: test-results
+      - name: Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: turkey-hunt-screens
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
