@@ -44,7 +44,7 @@ export function createScene({ reducedMotion = false, onSafe = () => {} } = {}) {
         creature.querySelectorAll('.impact-feathers, .damage, .animal').forEach(node => node.getAnimations().forEach(animation => animation.cancel()));
         creature.classList.add(mistake ? 'mistake' : 'hit'); creature.classList.toggle('cleared-hit', hit.killed);
         document.querySelector('.arena').classList.toggle('mistake', mistake);
-        $('damage').textContent = mistake ? hit.points < 0 ? `−${-hit.points}` : 'HOLD FIRE' : `+${hit.points}${hit.multiplier > 1 ? ' ×'+hit.multiplier : ''}`;
+        $('damage').textContent = mistake ? hit.points < 0 ? `−${-hit.points}` : 'HOLD FIRE' : `+${hit.points}`;
         $('damage').hidden = false;
         hitTimer = setTimeout(() => { creature.classList.remove('hit', 'cleared-hit', 'mistake'); document.querySelector('.arena').classList.remove('mistake'); $('damage').hidden = true; }, mistake ? 400 : CLEAR_MS);
       }
