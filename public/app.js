@@ -95,7 +95,7 @@ function sendPresence() { if (role === 'station' && connected) socket.emit('pres
 function updateCapture() {
   if (role !== 'station') return;
   const ready = canCapture() && connected && synced;
-  $('capture-status').textContent = !connected ? 'Disconnected — scans discarded' : !synced ? 'Synchronizing…' : !document.hasFocus() || document.hidden ? 'Window inactive — click here to capture' : $('help-dialog').open ? 'Field guide open — close to resume capture' : document.activeElement?.matches('input,select,textarea,[contenteditable=true]') ? 'Editing a field — click Arm when finished' : !armed ? 'Click to arm capture' : 'Capture ready · scan a target';
+  $('capture-status').textContent = !connected ? 'Disconnected — scans discarded' : !synced ? 'Synchronizing…' : !document.hasFocus() || document.hidden ? 'Window inactive — click here to capture' : $('help-dialog').open ? 'Instructions open — close to resume capture' : document.activeElement?.matches('input,select,textarea,[contenteditable=true]') ? 'Editing a field — click Arm when finished' : !armed ? 'Click to arm capture' : 'Capture ready · scan a target';
   $('capture-box').classList.toggle('warning', !ready);
   $('arm').innerHTML = ready ? icon('check') + 'Capture is armed' : 'Arm scanner capture ' + icon('arrow');
   $('arm').setAttribute('aria-label', ready ? 'Re-arm scanner capture' : 'Arm scanner capture');
@@ -124,7 +124,7 @@ function updateMode() {
   document.querySelectorAll('[data-mode]').forEach(button => { const active = button.dataset.mode === mode; button.classList.toggle('selected', active); button.setAttribute('aria-pressed', String(active)); });
   $('color-choice-label').hidden = mode === 'simultaneous';
   $('color-choice-copy').textContent = mode === 'single' ? 'Your scanner' : 'Who goes first?';
-  $('mode-note').textContent = mode === 'single' ? 'One hunter. Two minutes. A very personal vendetta.' : mode === 'alternating' ? 'Swap every 15 seconds. Equal time to cause a flap.' : 'Two hunters. Shared targets. May the fastest scanner win.';
+  $('mode-note').textContent = mode === 'single' ? 'One player. Two-minute round.' : mode === 'alternating' ? 'Scanners alternate every 15 seconds.' : 'Both players share target health.';
   for (const c of ['green','red']) { const inactive = mode === 'single' && c !== $('chosen-color').value; $('name-'+c).disabled = inactive; $('name-'+c).closest('label').classList.toggle('inactive', inactive); }
 }
 function renderBoard(force = false) {
@@ -132,7 +132,7 @@ function renderBoard(force = false) {
   const mode = $('board-mode').value;
   const rows = state.leaderboard.filter(r => mode === 'all' || r.mode === mode).slice(0,8);
   const key = JSON.stringify(rows); if (!force && key === lastBoard) return; lastBoard = key;
-  $('board').innerHTML = rows.map((r,i) => `<tr><td><span class="rank rank-${i+1}">${String(i+1).padStart(2,'0')}</span></td><td><span class="hunter-name"><i class="hunter-dot ${r.color}"></i>${escape(r.name)}</span><small>${escape(modeNames[r.mode] || r.mode)} · ${escape(r.endedAt.slice(0,10))}</small></td><td><strong>${r.score.toLocaleString()}</strong></td></tr>`).join('') || `<tr><td colspan="3" class="empty-board">${icon('trophy')}<strong>A legend has to start somewhere.</strong><p>Finish a hunt to claim the first spot.<br>The turkeys are rooting against you.</p></td></tr>`;
+  $('board').innerHTML = rows.map((r,i) => `<tr><td><span class="rank rank-${i+1}">${String(i+1).padStart(2,'0')}</span></td><td><span class="hunter-name"><i class="hunter-dot ${r.color}"></i>${escape(r.name)}</span><small>${escape(modeNames[r.mode] || r.mode)} · ${escape(r.endedAt.slice(0,10))}</small></td><td><strong>${r.score.toLocaleString()}</strong></td></tr>`).join('') || `<tr><td colspan="3" class="empty-board">${icon('trophy')}<strong>No scores yet.</strong><p>Complete a round to add scores.</p></td></tr>`;
 }
 function renderBanner() {
   $('banner').hidden = state.phase === 'playing';
@@ -141,13 +141,13 @@ function renderBanner() {
   if (key === lastBanner) return; lastBanner = key;
   if (state.phase === 'lobby') {
     $('banner').className = 'banner lobby-banner';
-    $('banner').innerHTML = `<div class="lobby-copy"><p class="eyebrow hero-kicker">OIT · TURKEY HUNT · AUTUMN ’26</p><h1>Something’s<br><em>gobbling.</em></h1><p>Two scanners. One clearing.<br>Try not to get outsmarted by a turkey.</p><button type="button" data-setup class="primary hero-cta">Head into the woods ${icon('arrow')}</button><div class="hero-steps"><span>Watch the trees.</span><span>Scan when they step out.</span><span>Ruffle feathers.</span></div></div><div class="hero-character" aria-hidden="true"><span class="speech-bubble">You saw<br>nothing.</span><div class="sprite tom hero-tom"></div></div><span class="woodland-location">DEEP IN THE WOODS. MILDLY OUT OF OUR DEPTH.</span>`;
+    $('banner').innerHTML = `<div class="lobby-copy"><p class="eyebrow hero-kicker">OIT · TURKEY HUNT · AUTUMN ’26</p><h1>Turkey<br><em>Hunt.</em></h1><p>Scan the code when an animal stops in the clearing.</p><button type="button" data-setup class="primary hero-cta">Set up hunt ${icon('arrow')}</button><div class="hero-steps"><span>Wait for the code.</span><span>Scan the animal.</span><span>Score points.</span></div></div><div class="hero-character" aria-hidden="true"><span class="speech-bubble">Gobble gobble</span><div class="sprite tom hero-tom"></div></div><span class="woodland-location">AUTUMN WOODS</span>`;
   } else {
     const players = Object.values(state.players).filter(p => state.mode !== 'single' || p.color === state.singleColor).sort((a,b)=>b.score-a.score);
     const tied = players.length > 1 && players[0].score === players[1].score;
-    const headline = tied ? 'A very fowl tie.' : 'That’s a wrap.';
+    const headline = tied ? 'Tie.' : 'Round complete.';
     $('banner').className = 'banner results-banner';
-    $('banner').innerHTML = `<div class="results-copy"><p class="eyebrow">${icon('trophy')} THE FEATHERS HAVE SETTLED</p><h2>${headline}</h2><p class="winner-title">${tied ? 'Shared glory. Double the strutting.' : `${escape(players[0].name)} ${state.mode === 'single' ? 'made feathers fly.' : 'rules the roost.'}`}</p><div class="result-scores">${players.map((p,i)=>`<div class="result-player ${p.color} ${i===0&&!tied?'winner':''}"><small>${escape(p.name)}</small><strong>${p.score.toLocaleString()}<span> PTS</span></strong><p>${p.hits} hits · ${p.kills} cleared</p></div>`).join('')}</div><button class="primary" data-next ${state.persistence!=='saved'?'disabled':''}>Next flock, please ${icon('arrow')}</button><p class="result-note">${state.persistence==='saved'?'Scores saved. Brag responsibly.':state.persistence==='error'?'Score saving failed. Retrying automatically…':'Saving your moment of glory…'}</p></div><div class="results-turkey sprite tom" aria-hidden="true"></div>`;
+    $('banner').innerHTML = `<div class="results-copy"><p class="eyebrow">${icon('trophy')} ROUND RESULTS</p><h2>${headline}</h2><p class="winner-title">${tied ? 'Tied score.' : `${escape(players[0].name)} ${state.mode === 'single' ? 'completed the round.' : 'wins.'}`}</p><div class="result-scores">${players.map((p,i)=>`<div class="result-player ${p.color} ${i===0&&!tied?'winner':''}"><small>${escape(p.name)}</small><strong>${p.score.toLocaleString()}<span> PTS</span></strong><p>${p.hits} hits · ${p.kills} cleared</p></div>`).join('')}</div><button class="primary" data-next ${state.persistence!=='saved'?'disabled':''}>Next group ${icon('arrow')}</button><p class="result-note">${state.persistence==='saved'?'Scores saved.':state.persistence==='error'?'Score saving failed. Retrying automatically…':'Saving scores…'}</p></div><div class="results-turkey sprite tom" aria-hidden="true"></div>`;
   }
 }
 function renderPresence() {
@@ -162,7 +162,7 @@ function renderPresence() {
 function render(hit) {
   if (!state) return;
   if (role === 'station') {
-    if (lastRound !== state.roundId) { nameDirty = false; lastRound = state.roundId; $('last-scan').textContent = 'No feathers ruffled. Yet.'; }
+    if (lastRound !== state.roundId) { nameDirty = false; lastRound = state.roundId; $('last-scan').textContent = 'No scans yet.'; }
     $('name-form').hidden = state.phase !== 'lobby';
     if (!nameDirty) $('player-name').value = state.players[color].name;
     $('round-status').textContent = state.phase === 'playing' ? `${state.players[color].name || color} · ${state.players[color].score} points · ${state.mode === 'alternating' ? state.turn + "'s turn" : state.mode === 'single' ? state.singleColor + ' only' : 'Both scanners live'}` : state.phase === 'results' ? `Round complete · ${state.players[color].score} points` : 'Waiting for the gallery to start.';
@@ -171,7 +171,7 @@ function render(hit) {
   document.body.classList.toggle('playing', state.phase === 'playing');
   document.body.dataset.phase = state.phase;
   $('round-summary').hidden = state.phase === 'lobby';
-  if (state.phase !== 'lobby' && previousPhase !== state.phase) $('round-summary').innerHTML = state.phase === 'results' ? '<h3>Good hunt. Great stories.</h3><p>Start a new group when everyone is ready.</p>' : '<h3>The hunt is on.</h3><p>Keep the scanner windows active. Every hit counts.</p>';
+  if (state.phase !== 'lobby' && previousPhase !== state.phase) $('round-summary').innerHTML = state.phase === 'results' ? '<h3>Round complete.</h3><p>Start a new group when everyone is ready.</p>' : '<h3>Round in progress.</h3><p>Keep the scanner windows active.</p>';
   $('setup-form').hidden = state.phase !== 'lobby'; $('finish').hidden = state.phase !== 'playing'; $('reset').hidden = state.phase !== 'results';
   $('retry-save').hidden = state.persistence !== 'error';
   $('reset').disabled = state.persistence !== 'saved';
@@ -183,14 +183,14 @@ function render(hit) {
     if (lastRound !== state.roundId || !$('name-' + c).dataset.dirty) $('name-' + c).value = p.name;
     if (lastRound !== state.roundId) delete $('name-' + c).dataset.dirty;
   }
-  if (lastRound !== state.roundId) { $('mode').value = state.mode; $('chosen-color').value = state.firstColor; $('hit-feedback').textContent = 'The woods are quiet. Suspiciously quiet.'; updateMode(); }
+  if (lastRound !== state.roundId) { $('mode').value = state.mode; $('chosen-color').value = state.firstColor; $('hit-feedback').textContent = 'Waiting for a scan.'; updateMode(); }
   lastRound = state.roundId;
   scene.update(state, hit);
   renderBanner();
   renderPresence();
   $('save-status').textContent = state.phase !== 'results' && state.persistence === 'saved' ? 'Scanner pages stay connected between groups.' : state.persistence === 'saved' ? 'Completed scores saved.' : state.persistence === 'saving' ? 'Saving completed scores…' : 'Score saving failed. Keep the server running; retrying automatically.';
   if (hit) {
-    $('hit-feedback').textContent = `${state.players[hit.color].name} · +${hit.points} · ${art[hit.code].name}${hit.killed ? ' — feathers successfully ruffled.' : ` · ${hit.hp} ${hit.hp === 1 ? 'hit' : 'hits'} to clear`}`;
+    $('hit-feedback').textContent = `${state.players[hit.color].name} · +${hit.points} · ${art[hit.code].name}${hit.killed ? ' · cleared' : ` · ${hit.hp} ${hit.hp === 1 ? 'hit' : 'hits'} to clear`}`;
     const player = $('player-'+hit.color); clearTimeout(player.scoreTimer); player.classList.add('scored'); player.scoreTimer = setTimeout(() => player.classList.remove('scored'), 300);
   }
   renderBoard();

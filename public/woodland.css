@@ -56,7 +56,7 @@
 .creature{--creature-size:min(95svh,70vw,1080px);--qr-left:26%;--qr-top:40%;--qr-size:45%;position:absolute;width:var(--creature-size);height:var(--creature-size);max-width:none;bottom:3%;left:50%;text-align:center;will-change:transform;transform-origin:50% 86%;backface-visibility:hidden;color:#fff7db}
 .creature[data-code=TKY1]{--qr-left:23%;--qr-top:41%;--qr-size:45%}
 .creature[data-code=BEAR]{--qr-left:18%;--qr-top:38%;--qr-size:45%}
-.animal-body{position:absolute;inset:0;clip-path:inset(0 0 var(--cover,0%) 0)}
+.animal-body{position:absolute;inset:0}
 .creature .animal{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;filter:drop-shadow(0 12px 2px #273c1a2b);transform-origin:50% 80%}
 .ground-shadow{position:absolute;bottom:4%;left:15%;width:70%;height:7%;border-radius:50%;background:#3042203d;filter:blur(8px);transform:rotateX(30deg)}
 .scan-patch{position:absolute;left:var(--qr-left);top:var(--qr-top);width:var(--qr-size);aspect-ratio:1;isolation:isolate}

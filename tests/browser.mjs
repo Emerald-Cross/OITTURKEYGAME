@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
 import { createRuntime } from '../server.mjs';
+import { APPROACH_MS, PEEK_MS } from '../public/encounters.js';
 const require=createRequire(import.meta.url);
 let playwright;
 try { playwright=await import('playwright'); }
@@ -50,6 +51,24 @@ async function assertScanArea(tv,minWidth=0){
  assert.ok(details.width>=minWidth,`QR ${details.width}px should be at least ${minWidth}px wide`);
  assert.equal(details.style.transform,'none');assert.equal(details.style.filter,'none');assert.equal(details.style.opacity,'1');
  return details;
+}
+async function assertMovingAnimal(tv,phase,at){
+ await move(at);
+ // Movement phases normally advance on the TV clock without server packets.
+ // Resync the controlled test clock through a normal full-state broadcast.
+ runtime.io.broadcast('state',{state:runtime.snapshot()});
+ await tv.waitForFunction(expected=>document.querySelector('#creature').dataset.stage===expected,phase);
+ const animal=await tv.evaluate(()=>{
+  const creature=document.querySelector('#creature'),body=creature.querySelector('.animal-body'),art=document.querySelector('#animal-art');
+  return {code:creature.dataset.code,phase:creature.dataset.stage,height:creature.offsetHeight,bodyHeight:body.offsetHeight,artHeight:art.offsetHeight,
+   clips:[creature,body,art].map(n=>getComputedStyle(n).clipPath),masks:[creature,body,art].map(n=>getComputedStyle(n).maskImage),overflow:getComputedStyle(body).overflowY,
+   codeHidden:document.querySelector('#scan-patch').hidden};
+ });
+ assert.deepEqual(animal.clips,['none','none','none'],`${animal.code} must retain its full body during ${phase}`);
+ assert.deepEqual(animal.masks,['none','none','none']);
+ assert.equal(animal.overflow,'visible');
+ assert.equal(animal.bodyHeight,animal.height);assert.equal(animal.artHeight,animal.height);
+ assert.equal(animal.codeHidden,true,'Moving animals do not expose their QR');
 }
 try {
  browser=await playwright.chromium.launch({executablePath,headless:true,args:['--no-sandbox']});
@@ -146,7 +165,7 @@ try {
  await move(runtime.game.startedAt+15000);await tv.waitForFunction(()=>document.querySelector('#phase').textContent.startsWith('GREEN TURN'));
  await g.locator('[data-sim=TKY4]').click();await tv.waitForFunction(()=>document.querySelector('#green-score').textContent==='25');
  await tv.locator('#finish').click();await tv.waitForFunction(()=>document.querySelector('[data-next]')?.disabled===false);
- assert.match(await tv.locator('#banner').textContent(),/fowl tie/);await tv.locator('[data-next]').click();
+ assert.match(await tv.locator('#banner').textContent(),/Tie\./);await tv.locator('[data-next]').click();
  await tv.locator('[data-mode=single]').click();await tv.locator('#chosen-color').selectOption('red');
  assert.equal(await tv.locator('#name-green').isDisabled(),true);await tv.locator('#name-red').fill('<b>Feather Boss</b>');await tv.locator('#start').click();
  await reveal(tv,'BEAR');await r.locator('[data-sim=BEAR]').click();await tv.waitForFunction(()=>document.querySelector('#red-score').textContent==='40');
@@ -163,11 +182,19 @@ try {
  // at TV, workstation, and phone sizes rather than only the center pose.
  await tv.locator('[data-next]').click();await tv.locator('#name-green').fill('Layout G');await tv.locator('#name-red').fill('Layout R');await tv.locator('#start').click();
  for(let i=0;i<8;i++){
-  await tv.setViewportSize({width:1920,height:1080});await reveal(tv);await assertScanArea(tv,440);
+  await tv.setViewportSize({width:1920,height:1080});
+  const encounter={...runtime.game.encounter};
+  await assertMovingAnimal(tv,'approach',encounter.startedAt+200);
+  await assertMovingAnimal(tv,'peek',encounter.startedAt+APPROACH_MS+20);
+  if(i<2)await capture(tv,`12-${encounter.code}-moving`);
+  await assertMovingAnimal(tv,'dodge',encounter.startedAt+APPROACH_MS+PEEK_MS+20);
+  await reveal(tv);await assertScanArea(tv,440);
   await tv.setViewportSize({width:1440,height:900});await assertScanArea(tv,370);
   await tv.setViewportSize({width:390,height:844});await assertScanArea(tv);
   if(i===0)await capture(tv,'11-gallery-mobile');
   assert.equal(await tv.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await tv.setViewportSize({width:1920,height:1080});
+  await assertMovingAnimal(tv,'retreat',encounter.concealAt+20);
   await move(runtime.game.encounter.nextAt);
  }
  await tv.setViewportSize({width:1920,height:1080});await tv.locator('#finish').click();await tv.waitForFunction(()=>document.querySelector('[data-next]')?.disabled===false);

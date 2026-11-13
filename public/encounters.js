@@ -35,20 +35,20 @@ const paths = [
 export function encounterPose(encounter, now, reducedMotion = false) {
   const phase = encounterPhase(encounter, now);
   const path = paths[encounter?.path ?? 0];
-  const base = { phase, x: path.to, floor: 3, z: 0, yaw: 0, bob: 0, cover: 0, opacity: phase === 'quiet' ? 0 : 1 };
+  const base = { phase, x: path.to, floor: 3, z: 0, yaw: 0, bob: 0, opacity: phase === 'quiet' ? 0 : 1 };
   if (reducedMotion || phase === 'reveal' || phase === 'cleared' || phase === 'quiet') return base;
   if (phase === 'approach') {
     const t = clamp((now - encounter.startedAt) / APPROACH_MS), p = ease(t);
     return { ...base, x: mix(path.from, path.to, p), floor: mix(26, 5, p), z: mix(-1800, -220, p), yaw: path.facing * (1 - p) * 32,
-      bob: -Math.abs(Math.sin(t * Math.PI * 6)) * 12, cover: .24, opacity: Math.min(1, t * 6) };
+      bob: -Math.abs(Math.sin(t * Math.PI * 6)) * 12, opacity: Math.min(1, t * 6) };
   }
-  if (phase === 'peek') return { ...base, floor: 5, z: -220, cover: .38, bob: 12 };
+  if (phase === 'peek') return { ...base, floor: 5, z: -220, bob: 12 };
   if (phase === 'dodge') {
     const t = clamp((now - encounter.startedAt - APPROACH_MS - PEEK_MS) / DODGE_MS);
     return { ...base, x: path.to + Math.sin(t * Math.PI * 2) * 3.5, floor: mix(5, 3, ease(t)), z: mix(-220, 0, ease(t)),
-      yaw: Math.sin(t * Math.PI * 2) * 16, bob: -Math.sin(t * Math.PI) * 24, cover: mix(.38, 0, ease(t)) };
+      yaw: Math.sin(t * Math.PI * 2) * 16, bob: -Math.sin(t * Math.PI) * 24 };
   }
   const t = clamp((now - encounter.concealAt) / RETREAT_MS), p = ease(t);
   return { ...base, x: mix(path.to, path.exit, p), floor: mix(3, 10, p), z: mix(0, -1000, p), yaw: path.facing * p * -35,
-    bob: -Math.abs(Math.sin(t * Math.PI * 4)) * 16, opacity: 1 - t, cover: p * .3 };
+    bob: -Math.abs(Math.sin(t * Math.PI * 4)) * 16, opacity: 1 - t };
 }

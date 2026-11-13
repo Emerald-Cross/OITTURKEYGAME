@@ -97,7 +97,7 @@ test('a sleeping server catches up its encounter timeline and turn in one tick',
 test('reduced motion uses the same scan window and a stationary animal', () => {
   const {game}=setup(); const e=game.encounter;
   const a=encounterPose(e,e.startedAt,true),b=encounterPose(e,e.revealAt,true);
-  for(const field of ['x','floor','z','yaw','bob','cover'])assert.equal(a[field],b[field]);
+  for(const field of ['x','floor','z','yaw','bob'])assert.equal(a[field],b[field]);
   assert.equal(a.phase,'approach');assert.equal(b.phase,'reveal');
 });
 test('name validation rejects control characters and oversize names',()=>{

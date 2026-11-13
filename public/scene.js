@@ -4,8 +4,6 @@ import { targets } from '/views.js';
 export function createScene({ reducedMotion = false } = {}) {
   const $ = id => document.getElementById(id);
   const creature = $('creature'), patch = $('scan-patch'), image = $('animal-code');
-  const cues = { approach: 'Something’s moving in the trees…', peek: 'Oh, we see you.', dodge: 'Sneaky little gobbler.',
-    reveal: 'Now’s your chance.', retreat: 'Back into the bushes.', cleared: 'That’ll ruffle some feathers.', quiet: 'Keep an eye on the clearing…' };
   let snapshot, connection = false, appearance = '', loadedCode = '', lastPhase = '', lastHp = '', hitTimer;
   image.onload = () => { loadedCode = image.getAttribute('src'); };
   image.onerror = () => { loadedCode = ''; patch.hidden = true; };
@@ -63,12 +61,11 @@ export function createScene({ reducedMotion = false } = {}) {
       creature.style.bottom = `${pose.floor}%`;
       creature.style.transform = reducedMotion ? 'translateX(-50%)' : `translate3d(-50%,${pose.bob}px,${pose.z}px) rotateY(${pose.yaw}deg)`;
       creature.style.opacity = pose.opacity;
-      creature.style.setProperty('--cover', `${pose.cover * 100}%`);
       $('encounter-info').hidden = !canScan;
       if (lastPhase !== pose.phase) {
         lastPhase = pose.phase;
-        $('encounter-cue').textContent = cues[pose.phase];
-        $('encounter-tag').textContent = target.code === 'BEAR' ? 'A SLIGHT CHANGE OF PLANS' : target.hp < target.maxHp ? 'BACK FOR ANOTHER ROUND' : 'OUT OF THE WOODS';
+        $('encounter-cue').textContent = pose.phase === 'quiet' || pose.phase === 'cleared' ? '' : targets[target.code].call;
+        $('encounter-tag').textContent = 'TARGET';
       }
       $('window-fill').style.transform = `scaleX(${Math.max(0, Math.min(1, (encounter.concealAt - now) / (encounter.concealAt - encounter.revealAt)))})`;
     }
