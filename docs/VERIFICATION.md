@@ -1,5 +1,7 @@
 # Verification — quick-draw rules
 
+The gameplay revision passed the full engine and Chromium suite in [Game checks run 43488635292](https://github.com/Emerald-Cross/OITTURKEYGAME/actions/runs/43488635292), on source commit `cb492ad124ab64b72af0e0237808dcd81add4a13`.
+
 `npm run check` runs 27 engine, real WebSocket, HTTP, storage, and capture tests. These cover one-scan clears, race winners, gold points, streak thresholds/cap/reset, once-per-color wildlife penalties, a zero score floor, safe holds, duplicate and stale deliveries, exact exposure and round boundaries, shuffled bag balance, the 1.25-second handoff, alternating/solo play, reset, ruleset-filtered storage, and the existing scanner buffer.
 
 `npm run test:browser` uses actual Chromium and the real server with a controlled test clock. It exercises keyboard scanner input, one-scan clear visibility, duplicate/race handling, gold art, shoot/hold-fire labels, score multipliers, protected-animal penalties, help isolation, clean holds, expiry without a server packet, scanner and TV reconnection, multiple TVs, fullscreen, deadline, modes, results/reset, escaped names, optional sound, reduced motion, and mobile capture.

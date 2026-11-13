@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, access, mkdir, appendFile } from 'node:fs/promises';
+import { mkdtemp, rm, access, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -137,11 +137,4 @@ try{
  }
  assert.equal(seen.size,Object.keys(ANIMALS).length);await finish();assert.equal(errors.length,0,errors.join('\n'));
  console.log('PASS: one-scan turkey clears, gold bonus, shoot/hold-fire choices, once-per-animal penalties, streak multipliers, strong clear feedback, duplicate/race handling, capture/help isolation, safe holds, client expiry, both reconnects, multiple TVs, deadline, modes, results/reset, escaped names, reduced motion, full sprites, and every animal/path/viewport QR layout.');
-}catch(error){
- if(process.env.GITHUB_OUTPUT){
-  const line=String(error.stack).match(/tests\/browser\.mjs:(\d+):/);
-  const summary=('L'+(line?.[1]||'?')+' '+runtime.game.encounter?.code+' '+Math.round(now-(runtime.game.startedAt||now))+'ms G'+runtime.game.players.green.score+'/R'+runtime.game.players.red.score+' '+String(error.message).replace(/[\r\n]+/g,' ')).slice(0,230);
-  await appendFile(process.env.GITHUB_OUTPUT,'error='+summary+'\n');
- }
- throw error;
 }finally{await browser?.close();await runtime.close();await rm(dir,{recursive:true,force:true});}
