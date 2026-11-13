@@ -19,10 +19,10 @@ function setup(mode='simultaneous',extra={}) {
  const shot=(code=game.encounter.code,props={})=>({payload:code,roundId:game.roundId,spawnId:game.targets.find(t=>t.code===code)?.spawnId,eventId:`event-${++seq}-test`,...props});
  return{game,rounds,at,next,reveal,shooting,shot};
 }
-test('one scan clears each turkey, including gold, and hides its code synchronously',()=>{
+test('one scan clears snowmen and gold presents, and hides its code synchronously',()=>{
  const {game,reveal,shot}=setup();reveal();
  const normal=game.scan('green',shot());assert.equal(normal.accepted,true);assert.equal(normal.killed,true);assert.equal(normal.points,10);assert.equal(game.targets[0].hp,0);assert.equal(game.targets.some(t=>t.active),false);
- reveal('TKY4');const gold=game.scan('red',shot());assert.equal(gold.points,30);assert.equal(gold.killed,true);assert.equal(game.players.red.kills,1);
+ reveal('GIFT');const gold=game.scan('red',shot());assert.equal(gold.points,30);assert.equal(gold.killed,true);assert.equal(game.players.red.kills,1);
 });
 test('a race has one winner; the losing scan is not a mistake',()=>{
  const {game,reveal,shot}=setup();reveal();const g=shot(),r=shot();
@@ -31,7 +31,7 @@ test('a race has one winner; the losing scan is not a mistake',()=>{
 });
 test('repeating a delivery is idempotent, including after clearing and replacement',()=>{
  const {game,reveal,shot}=setup();reveal();const data=shot();const first=game.scan('green',data);
- assert.equal(game.scan('green',data).duplicate,true);reveal('TKY1');
+ assert.equal(game.scan('green',data).duplicate,true);reveal('SNOW');
  assert.equal(game.scan('green',data).duplicate,true);assert.equal(game.players.green.score,first.score);
  assert.equal(game.scan('green',{...data,eventId:'delayed-new-id'}).accepted,false);
  assert.equal(game.scan('green',shot()).accepted,true);assert.equal(game.players.green.score,20);
@@ -44,28 +44,28 @@ test('clean hits increase the next multiplier at three and six, capped at three'
  }
  assert.equal(game.players.green.score,total);assert.equal(game.players.green.streak,10);assert.equal(game.players.green.bestStreak,10);assert.equal(game.players.green.hits,10);
 });
-test('scanning wildlife deducts points and resets only that player’s streak',()=>{
+test('scanning Santa or reindeer deducts points and resets only that player’s streak',()=>{
  const {game,shooting,reveal,shot}=setup();
  for(let i=0;i<4;i++){shooting();game.scan('green',shot());}
  const before=game.players.green.score;reveal('DEER');const old=shot();
  const penalty=game.scan('green',old);assert.equal(penalty.accepted,true);assert.equal(penalty.kind,'penalty');assert.equal(penalty.points,-25);assert.equal(penalty.killed,false);
  assert.equal(game.players.green.score,before-25);assert.equal(game.players.green.streak,0);assert.equal(game.players.green.bestStreak,4);assert.equal(game.players.green.mistakes,1);
  assert.equal(game.targets.find(t=>t.code==='DEER').active,true);assert.equal(game.players.red.mistakes,0);
- assert.equal(game.scan('green',old).duplicate,true);assert.equal(game.scan('green',shot()).reason,'Already counted this animal.');assert.equal(game.players.green.score,before-25);
+ assert.equal(game.scan('green',old).duplicate,true);assert.equal(game.scan('green',shot()).reason,'Already counted this target.');assert.equal(game.players.green.score,before-25);
  shooting();assert.equal(game.scan('green',shot()).multiplier,1);
 });
-test('each player can incur one penalty per wildlife appearance, with a zero score floor',()=>{
- const {game,reveal,shot}=setup();reveal('BEAR');
+test('each player can incur one penalty per hold-fire appearance, with a zero score floor',()=>{
+ const {game,reveal,shot}=setup();reveal('SANTA');
  for(const color of ['green','red']){const result=game.scan(color,shot());assert.equal(result.kind,'penalty');assert.equal(result.points,0);assert.equal(game.players[color].score,0);assert.equal(game.players[color].mistakes,1);}
  assert.equal(game.scan('green',shot()).accepted,false);assert.deepEqual(game.encounter.penalized,['green','red']);
 });
-test('holding fire resolves wildlife safely without farming points or breaking a streak',()=>{
+test('holding fire resolves Santa and reindeer safely without farming points or breaking a streak',()=>{
  const {game,reveal,shot,at}=setup();reveal();game.scan('green',shot());reveal('DEER');const before=game.players.green.score;
  at(game.encounter.concealAt);assert.equal(game.encounter.outcome,'safe');assert.equal(game.targets.some(t=>t.active),false);assert.equal(game.players.green.score,before);assert.equal(game.players.green.streak,1);
  assert.equal(game.scan('green',shot()).accepted,false);
 });
-test('letting a turkey escape loses the opportunity without resetting clean trigger decisions',()=>{
- const {game,reveal,shot,at}=setup();reveal();game.scan('green',shot());reveal('TKY1');at(game.encounter.concealAt);
+test('letting a snowman escape loses the opportunity without resetting clean trigger decisions',()=>{
+ const {game,reveal,shot,at}=setup();reveal();game.scan('green',shot());reveal('SNOW');at(game.encounter.concealAt);
  assert.equal(game.encounter.outcome,'escaped');assert.equal(game.players.green.streak,1);assert.equal(game.players.green.score,10);
 });
 test('only one animal is interactive, and only during its stationary reveal',()=>{
@@ -74,7 +74,7 @@ test('only one animal is interactive, and only during its stationary reveal',()=
 });
 test('exposure boundaries reject hidden, unknown, and expired animal codes',()=>{
  const {game,reveal,shot,at}=setup();const first=game.encounter;at(first.revealAt-1);assert.equal(game.scan('green',shot()).accepted,false);
- reveal();assert.equal(game.scan('green',shot('UNKNOWN')).accepted,false);assert.equal(game.scan('green',shot('BEAR')).accepted,false);
+ reveal();assert.equal(game.scan('green',shot('UNKNOWN')).accepted,false);assert.equal(game.scan('green',shot('SANTA')).accepted,false);
  reveal('DEER');const e={...game.encounter};
  assert.equal(game.scan('green',shot()).accepted,true);at(e.concealAt-1);assert.equal(game.scan('red',shot()).accepted,true);at(e.concealAt);assert.equal(game.scan('red',shot()).accepted,false);
  assert.deepEqual(encounterPose(e,e.revealAt),encounterPose(e,e.concealAt-1));
@@ -88,7 +88,7 @@ test('a clear hands off to the next scannable animal in 1.25 seconds',()=>{
 test('a shuffled bag preserves scoring/hold-fire balance and the first target teaches the rule',()=>{
  const {game,next}=setup();const codes=[];
  for(let i=0;i<8;i++){codes.push(game.encounter.code);assert.ok(game.encounter.path>=0&&game.encounter.path<4);next();}
- assert.equal(codes[0],'TKY1');assert.deepEqual(codes.toSorted(),ENCOUNTER_BAG.toSorted());
+ assert.equal(codes[0],'SNOW');assert.deepEqual(codes.toSorted(),ENCOUNTER_BAG.toSorted());
 });
 test('alternating mode gates good shots and penalties using the current 15-second turn',()=>{
  const {game,reveal,shot,at}=setup('alternating',{firstColor:'red'});reveal();
@@ -118,6 +118,7 @@ test('name validation rejects control characters and oversize names',()=>{
 });
 test('scanner capture still emits each Enter immediately, including new deer codes',()=>{
  let now=100;const values=[],scanner=createScanner((payload,at)=>values.push({payload,at}),()=>now++);
- const type=text=>{for(const key of text)scanner({key});scanner({key:'Enter'});};type('TKY1');type('TKY1');type('deer');assert.deepEqual(values.map(v=>v.payload),['TKY1','TKY1','DEER']);
+ const type=text=>{for(const key of text)scanner({key});scanner({key:'Enter'});};type('SNOW');type('SNOW');type('deer');assert.deepEqual(values.map(v=>v.payload),['SNOW','SNOW','DEER']);
  scanner({key:'T'});now+=1001;scanner({key:'Enter'});assert.equal(values.length,3);scanner({key:'D'});scanner.reset();scanner({key:'Enter'});assert.equal(values.length,3);
 });
+

@@ -112,10 +112,10 @@ export async function createRuntime({ dataDir = resolve(root, 'data'), clock = D
   };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  if (process.env.RENDER && !process.env.DATA_DIR) throw Error('Set DATA_DIR to a mounted persistent disk before deploying.');
   const runtime = await createRuntime({ dataDir: process.env.DATA_DIR ? resolve(process.env.DATA_DIR) : undefined });
   await runtime.listen(Number(process.env.PORT || 3000));
-  console.log(`OIT Turkey Shoot: http://localhost:${process.env.PORT || 3000}/gallery`);
+  console.log(`Merry Mayhem: http://localhost:${process.env.PORT || 3000}/gallery`);
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { await runtime.close(); process.exit(runtime.scores.status === 'error' ? 1 : 0); });
 }
+
 

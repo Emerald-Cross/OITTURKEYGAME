@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import { on
 import { mkdtemp,rm } from 'node:fs/promises';import { tmpdir } from 'node:os';import { join } from 'node:path';
 import { createRuntime } from '../server.mjs';
 export async function peer(url,role,color) {
- const ws=new WebSocket(`${url}/events?role=${role}${color?'&color='+color:''}`,'oit-turkey-v1');
+ const ws=new WebSocket(`${url}/events?role=${role}${color?'&color='+color:''}`,'oit-christmas-v1');
  const messages=[],waiters=[],acks=new Map();let id=0;
  ws.addEventListener('message',event=>{const p=JSON.parse(event.data);if(p.ack!==undefined){acks.get(p.ack)?.(p.data);acks.delete(p.ack);return;}messages.push(p);for(const wake of [...waiters])wake();});
  await once(ws,'open');
@@ -14,7 +14,7 @@ export async function peer(url,role,color) {
 }
 async function fixture(t) {
  let now=100000;let seed=7;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
- const dir=await mkdtemp(join(tmpdir(),'turkey-net-'));const runtime=await createRuntime({dataDir:dir,clock:()=>now,random});const addr=await runtime.listen(0,'127.0.0.1');const url=`ws://127.0.0.1:${addr.port}`;
+ const dir=await mkdtemp(join(tmpdir(),'christmas-net-'));const runtime=await createRuntime({dataDir:dir,clock:()=>now,random});const addr=await runtime.listen(0,'127.0.0.1');const url=`ws://127.0.0.1:${addr.port}`;
  const peers=[];t.after(async()=>{peers.forEach(p=>p.ws.close());await runtime.close();await rm(dir,{recursive:true,force:true});});
  const make=async(role,color)=>{const p=await peer(url,role,color);peers.push(p);return p;};
  const move=async value=>{now=value;await new Promise(resolve=>setTimeout(resolve,75));};
@@ -40,7 +40,7 @@ test('real WebSockets: one winner, duplicate delivery, authoritative TV, reconne
 test('wildlife penalties publish immediately, stay one per color, and leave the code active',async t=>{
  const {runtime,make,reveal,shot}=await fixture(t);const tv=await make('gallery'),g=await make('station','green'),r=await make('station','red');
  await g.call('name',{name:'G'});await r.call('name',{name:'R'});await tv.call('control',{action:'start',mode:'simultaneous'});
- await reveal('TKY4');await g.call('scan',shot());await reveal('DEER');const data=shot();const penalty=await g.call('scan',data);
+ await reveal('GIFT');await g.call('scan',shot());await reveal('DEER');const data=shot();const penalty=await g.call('scan',data);
  assert.equal(penalty.kind,'penalty');assert.equal(penalty.points,-25);const packet=await tv.next('state',p=>p.hit?.eventId===data.eventId);
  assert.equal(packet.state.players.green.score,5);assert.equal(packet.state.players.green.streak,0);assert.equal(packet.state.targets.find(t=>t.code==='DEER').active,true);
  assert.equal((await g.call('scan',data)).duplicate,true);assert.equal((await g.call('scan',shot())).accepted,false);assert.equal(runtime.game.players.green.score,5);
@@ -51,7 +51,7 @@ test('frame diagnostics retain the immediate hit path and do not wait for score 
  const tv=await make('gallery'),g=await make('station','green');await g.call('name',{name:'Solo'});await tv.call('control',{action:'start',mode:'single'});await reveal();
  const data=shot();assert.equal((await g.call('scan',data)).accepted,true);const {hit}=await tv.next('state',p=>p.hit?.eventId===data.eventId);assert.equal(writes,0);
  tv.ws.send(JSON.stringify({event:'display:frame',data:{traceId:hit.traceId,domMs:1,frameWaitMs:5}}));const metric=await tv.next('diagnostic');assert.equal(metric.domMs,1);assert.ok(metric.serverToFrameReturnMs>=0);
- await reveal('BEAR');await g.call('scan',shot());assert.equal(writes,0);
+ await reveal('SANTA');await g.call('scan',shot());assert.equal(writes,0);
 });
 test('a second TV receives the same rule and wildlife state; HTTP exposes the new QR only as a public asset',async t=>{
  const {runtime,make,reveal,shot,url}=await fixture(t);const tv=await make('gallery'),g=await make('station','green');await g.call('name',{name:'Solo'});await tv.call('control',{action:'start',mode:'single'});await reveal();await g.call('scan',shot());await reveal('DEER');
@@ -59,3 +59,4 @@ test('a second TV receives the same rule and wildlife state; HTTP exposes the ne
  const base=url.replace('ws:','http:');for(const path of ['/gallery','/scan/green','/scan/red','/qr/DEER.svg'])assert.equal((await fetch(base+path)).status,200);
  assert.equal((await fetch(base+'/data/scores.json')).status,404);assert.equal((await fetch(base+'/server.mjs')).status,404);assert.equal((await fetch(base+'/gallery',{method:'POST'})).status,405);
 });
+

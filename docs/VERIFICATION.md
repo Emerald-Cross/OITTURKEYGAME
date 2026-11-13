@@ -1,13 +1,9 @@
-# Verification — quick-draw rules
+# Christmas verification · November 13, 2026
 
-The gameplay revision passed the full engine and Chromium suite in [Game checks run 43488635292](https://github.com/Emerald-Cross/OITTURKEYGAME/actions/runs/43488635292), on source commit `cb492ad124ab64b72af0e0237808dcd81add4a13`.
+`npm run check` exercises syntax and 27 engine/capture/WebSocket/HTTP/storage checks. See the current GitHub Game checks run for the branch's final result.
 
-`npm run check` runs 27 engine, real WebSocket, HTTP, storage, and capture tests. These cover one-scan clears, race winners, gold points, streak thresholds/cap/reset, once-per-color wildlife penalties, a zero score floor, safe holds, duplicate and stale deliveries, exact exposure and round boundaries, shuffled bag balance, the 1.25-second handoff, alternating/solo play, reset, ruleset-filtered storage, and the existing scanner buffer.
+The Chromium suite has been adapted to all Christmas art and payloads, including the one-code 1920 × 1080 / 1440 × 900 / 390 × 844 layout matrix, all four paths, full-body movement, square unfiltered codes, immediate clears, hold-fire penalties, once-per-appearance enforcement, multipliers, races, duplicate delivery, focus/help isolation, reconnection, modes, results, resets, safe holds, deadline, and reduced motion. CI captures screenshots as `christmas-screens`.
 
-`npm run test:browser` uses actual Chromium and the real server with a controlled test clock. It exercises keyboard scanner input, one-scan clear visibility, duplicate/race handling, gold art, shoot/hold-fire labels, score multipliers, protected-animal penalties, help isolation, clean holds, expiry without a server packet, scanner and TV reconnection, multiple TVs, fullscreen, deadline, modes, results/reset, escaped names, optional sound, reduced motion, and mobile capture.
+Local Chromium could not launch because this execution environment disallows the Unix socket used by its process singleton. This is an environment limitation, not a passing browser result. Branch CI runs the browser suite on Ubuntu. Its current run is authoritative for browser checks.
 
-The visual checks inspect all four animal types through all four paths at 1920×1080, 1440×900, and 390×844. Exactly one square QR must be visible; its entire quiet zone must fit the scene and remain clear of labels, scores, hints, and controls. Filters on the QR and its ancestors must remain disabled, including for gold turkeys. Moving sprites must not use body clipping or masks. QR width is checked at a minimum 440 px at 1080p and 370 px at 1440×900.
-
-The existing read-only CI workflow runs these checks and captures screenshots in the `turkey-hunt-screens` artifact. Local Chromium is blocked by this workspace's Unix-socket policy, so browser rendering runs in CI. Set `TURKEY_SCREENSHOT_DIR` to capture images when running locally.
-
-A physical scanner and event TV are not available here. Rehearse one-scan claims, choosing not to scan deer/bears, the new handoff pace, and wildlife penalty behavior with the actual scanners. Software checks do not measure optical decoding or physical TV latency, and a user playtest is still needed to judge the new loop's fun.
+The new SVGs are generated locally and checked for well-formed XML. The four QR payloads have been regenerated with a four-module quiet zone. Physical S740 scanner decoding, office network connectivity, and TV latency still require rehearsal with the real equipment. Software tests do not measure optical decode or physical paint time.

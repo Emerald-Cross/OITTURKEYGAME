@@ -1,50 +1,40 @@
-# Running and deployment
+# Running Merry Mayhem
 
-## Local event host
+## Local event
 
-Use Node.js 22.9–24 on one host. `npm start` runs the committed source directly; no build or npm install is required. The TV workstation can also be the host. Set `PORT` if 3000 is occupied. Set `DATA_DIR` to a durable directory if the default `data/` is unsuitable. The server listens on 0.0.0.0.
+Use Node.js 22.9–24. Run `npm start` from the project folder. The committed `vendor/` directory supplies the WebSocket runtime, so npm installation is unnecessary. One server listens on port 3000, or `PORT`. All pages use that same host.
 
-Example optional `.env`:
+TV: `/gallery`. East: `/scan/green`. Student Main: `/scan/red`. Keep scanner capture windows focused and armed. On a shared TV/scanner computer, use extended desktop. Keep the TV visible while capture has focus. Names and modes live in **Lodge & scores**. No database, passwords, or secrets are required.
+
+An optional `.env` can contain:
 
 ```
 PORT=3000
 DATA_DIR=./data
 ```
 
-Use the host LAN IP from both scanner workstations. All pages connect to their own host with `ws://` or `wss://` as appropriate. Do not use a second server for a scanner; it would create a separate game. Keep one process and stop it after save confirmation. Back up `scores.json` when the server is stopped. A malformed score file fails startup rather than silently erasing history.
+Do not commit `.env`, `data/`, or root `node_modules/`. Keep `vendor/`.
 
-No environment secrets or Supabase schema are needed. The old Halloween application's Supabase table is not read or modified.
+## Render with temporary scores
 
-## Render option
+The event configuration allows a fresh game for every Render instance. **A persistent disk is optional.**
 
-This first version uses a file-backed leaderboard. On Render it needs a **paid service with a persistent disk**, not the Free service's temporary filesystem. This is a deployment option, not a service provisioned by this project.
+| Setting | Value |
+| --- | --- |
+| Source branch | `christmas` |
+| Runtime | Node 24 |
+| Build command | `npm run check` |
+| Start command | `npm start` |
+| Health check | `/healthz` |
+| Instances | 1 |
+| DATA_DIR | `./data` (optional; this is also the default) |
 
-- Runtime: Node; one instance.
-- Build command: `npm run check` (dependencies are already bundled).
-- Start command: `npm start`.
-- Health check: `/healthz`.
-- Mount the persistent disk at `/var/data` and set `DATA_DIR=/var/data`.
-- Render supplies `PORT`. Set `NODE_VERSION` to an allowed Node release if needed.
-- Place an access layer in front of the password-free gallery before exposing it publicly.
-- Restart/deploy only between rounds: active play is held in server memory and aborts on restart.
+Create a separate Render service for Christmas so the turkey game keeps its deployment. Changing the existing service's source branch would replace that service's live edition. No Christmas service has been provisioned by this source change.
 
-Startup refuses Render when DATA_DIR is omitted; setting a path is not proof that a persistent disk is mounted. Confirm the mount in Render. Completed scores survive a restart only if that directory really is durable. Free Render plus Supabase leaderboard-only persistence would be a separate follow-up implementation; it is not included.
+Completed scores use the instance's local filesystem. A restart, redeploy, or host replacement can clear them; an active round always aborts. For durable scores later, point DATA_DIR to a genuinely persistent directory and back up `scores.json` between events. One Node process must own that directory.
 
-Current platform facts checked November 4, 2026:
+The gallery is password-free and has round controls. Use the host/network access arrangement appropriate for the event. Scanners connect automatically using ws or wss to their page's host.
 
-- [Render persistent disks](https://render.com/docs/disks): persistence is limited to the disk mount; disks require a paid service and a single instance.
-- [Render Free](https://render.com/docs/free): local files are lost on restart, redeploy, or spin-down; Free services cannot attach disks.
+## Source edition
 
-## GitHub source
-
-Source repository: [Emerald-Cross/OITTURKEYGAME](https://github.com/Emerald-Cross/OITTURKEYGAME).
-
-Clone the repository, open its folder, and run the game:
-
-```
-git clone https://github.com/Emerald-Cross/OITTURKEYGAME.git
-cd OITTURKEYGAME
-npm start
-```
-
-Keep `vendor/`: it contains the bundled runtime. Do not commit `data/`, `.env`, or root `node_modules/`. The Halloween repository remains separate and unchanged. Hosting the game is a separate step from publishing its source on GitHub.
+[Christmas branch](https://github.com/Emerald-Cross/OITTURKEYGAME/tree/christmas). The separate branch is ready to copy into an independent repository named OITCHRISTMASGAME; see [FORK.md](../FORK.md). Do not merge it into turkey main unless replacing that edition is intentional.

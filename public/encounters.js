@@ -1,16 +1,16 @@
 // Shared encounter timing: the server decides when a code can score; the TV
 // animates the same timeline without sending animation frames over the network.
-export const RULESET = 'quickdraw-v1';
+export const RULESET = 'christmas-v1';
 export const ANIMALS = {
-  TKY1: { code: 'TKY1', label: 'Turkey', action: 'shoot', maxHp: 1, points: 10, art: 'turkey', call: 'Gobble gobble' },
-  TKY4: { code: 'TKY4', label: 'Gold turkey', action: 'shoot', maxHp: 1, points: 30, art: 'tom', call: 'Gobble gobble' },
-  BEAR: { code: 'BEAR', label: 'Bear', action: 'avoid', maxHp: 1, points: 0, penalty: 25, art: 'bear', call: 'Grrr' },
-  DEER: { code: 'DEER', label: 'Deer', action: 'avoid', maxHp: 1, points: 0, penalty: 25, art: 'deer', call: '' }
+  SNOW: { code: 'SNOW', label: 'Snowman', action: 'shoot', maxHp: 1, points: 10, art: 'snowman', call: 'Brrr!' },
+  GIFT: { code: 'GIFT', label: 'Gold present', action: 'shoot', maxHp: 1, points: 30, art: 'gift', call: '' },
+  SANTA: { code: 'SANTA', label: 'Santa', action: 'avoid', maxHp: 1, points: 0, penalty: 25, art: 'santa', call: 'Ho ho ho' },
+  DEER: { code: 'DEER', label: 'Reindeer', action: 'avoid', maxHp: 1, points: 0, penalty: 25, art: 'reindeer', call: '' }
 };
 // Shuffle a balanced bag on the server: six scoring targets, two hold-fire targets.
-export const ENCOUNTER_BAG = ['TKY1', 'TKY1', 'TKY1', 'TKY1', 'TKY4', 'TKY4', 'DEER', 'BEAR'];
+export const ENCOUNTER_BAG = ['SNOW', 'SNOW', 'SNOW', 'SNOW', 'GIFT', 'GIFT', 'DEER', 'SANTA'];
 export const scoreMultiplier = streak => Math.min(3, 1 + Math.floor((streak || 0) / 3));
-export const REVEAL_MS = { TKY1: 5000, TKY4: 5000, BEAR: 3000, DEER: 3000 };
+export const REVEAL_MS = { SNOW: 5000, GIFT: 5000, SANTA: 3000, DEER: 3000 };
 export const APPROACH_MS = 450;
 export const PEEK_MS = 150;
 export const DODGE_MS = 200;
@@ -61,3 +61,4 @@ export function encounterPose(encounter, now, reducedMotion = false) {
   return { ...base, x: mix(path.to, path.exit, p), floor: mix(3, 10, p), z: mix(0, -1000, p), yaw: path.facing * p * -35,
     bob: -Math.abs(Math.sin(t * Math.PI * 4)) * 16, opacity: 1 - t };
 }
+

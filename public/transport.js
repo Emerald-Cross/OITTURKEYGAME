@@ -18,7 +18,7 @@ export function connectEvents(auth) {
   };
   function connect() {
     const query = new URLSearchParams(auth);
-    ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/events?${query}`, 'oit-turkey-v1');
+    ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/events?${query}`, 'oit-christmas-v1');
     ws.onopen = () => { api.connected = true; attempt = 0; dispatch('connect'); };
     ws.onmessage = event => {
       let packet; try { packet = JSON.parse(event.data); } catch { return; }
@@ -37,3 +37,4 @@ export function connectEvents(auth) {
   // Defer until the page has registered its event handlers.
   queueMicrotask(connect); return api;
 }
+

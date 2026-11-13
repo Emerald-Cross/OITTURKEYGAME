@@ -13,7 +13,7 @@ let state, connected = false, synced = false, armed = false, simulatedLast = nul
 let nameDirty = false, noticeTimer, lastBoard = '', lastRound = null;
 let lastBanner = '', lastPresenceView = '', previousPhase = null, scene;
 const sound = createSound();
-const modeNames = { simultaneous: 'Head-to-head', alternating: 'Take turns', single: 'Solo hunt' };
+const modeNames = { simultaneous: 'Head-to-head', alternating: 'Take turns', single: 'Solo run' };
 $('help-dialog').innerHTML = helpView();
 $('how-to').innerHTML = icon('help') + '<span>How to play</span>';
 $('how-to').onclick = () => { $('help-dialog').showModal(); if (role === 'station') { updateCapture(); sendPresence(); } };
@@ -23,7 +23,7 @@ $('help-dialog').addEventListener('click', event => { if (event.target === $('he
 $('sound').innerHTML = icon('mute') + '<span>Sound off</span>';
 $('sound').onclick = () => { const on = sound.toggle(); $('sound').setAttribute('aria-pressed', String(on)); $('sound').setAttribute('aria-label', on ? 'Turn sound off' : 'Turn sound on'); $('sound').innerHTML = icon(on ? 'sound' : 'mute') + `<span>Sound ${on ? 'on' : 'off'}</span>`; if (on) sound.play('hit'); };
 $('fullscreen').innerHTML = icon('expand') + '<span>Full screen</span>';
-document.querySelector('.brand-mark').innerHTML = icon('feather');
+document.querySelector('.brand-mark').innerHTML = icon('snow');
 document.addEventListener('fullscreenchange', () => { $('fullscreen').setAttribute('aria-label', document.fullscreenElement ? 'Exit full screen' : 'Full screen'); $('fullscreen').innerHTML = icon('expand') + `<span>${document.fullscreenElement ? 'Exit full screen' : 'Full screen'}</span>`; });
 const randomId = () => [...crypto.getRandomValues(new Uint32Array(4))].map(n => n.toString(16)).join('-');
 const instanceId = randomId(); // Works on LAN HTTP without crypto.randomUUID's secure-context restriction.
@@ -80,8 +80,8 @@ if (role === 'gallery') {
   document.addEventListener('keydown', event => {
     if (event.target.closest('input,select,textarea,[contenteditable=true]')) return;
     if (!armed || !document.hasFocus() || $('help-dialog').open) return;
-    if ($('simulator').open && ['1','4','b','B','d','D'].includes(event.key) && !event.repeat && !event.ctrlKey && !event.metaKey && !event.altKey) {
-      event.preventDefault(); submit(({ '1':'TKY1', '4':'TKY4', b:'BEAR', B:'BEAR', d:'DEER', D:'DEER' })[event.key], performance.now(), true); return;
+    if ($('simulator').open && ['1','4','s','S','d','D'].includes(event.key) && !event.repeat && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault(); submit(({ '1':'SNOW', '4':'GIFT', s:'SANTA', S:'SANTA', d:'DEER', D:'DEER' })[event.key], performance.now(), true); return;
     }
     scanner(event);
   });
@@ -142,13 +142,13 @@ function renderBanner() {
   if (key === lastBanner) return; lastBanner = key;
   if (state.phase === 'lobby') {
     $('banner').className = 'banner lobby-banner';
-    $('banner').innerHTML = `<div class="lobby-copy"><p class="eyebrow hero-kicker">OIT · TURKEY HUNT · AUTUMN ’26</p><h1>Turkey<br><em>Hunt.</em></h1><p>Scan turkeys. Hold fire for deer and bears.</p><button type="button" data-setup class="primary hero-cta">Set up hunt ${icon('arrow')}</button><div class="hero-steps"><span>One scan per turkey.</span><span>Gold is worth more.</span><span>Leave wildlife alone.</span></div></div><div class="hero-character" aria-hidden="true"><span class="speech-bubble">Gobble gobble</span><div class="sprite tom hero-tom"></div></div><span class="woodland-location">AUTUMN WOODS</span>`;
+    $('banner').innerHTML = `<div class="lobby-copy"><p class="eyebrow hero-kicker">THE NORTH POLE · CHRISTMAS ’26</p><h1>Merry<br><em>Mayhem.</em></h1><p>Snowmen to clear. Presents to collect.<br>Santa and reindeer? Let them pass.</p><button type="button" data-setup class="primary hero-cta">Let’s play ${icon('arrow')}</button><div class="hero-steps"><span>Scan snowmen.</span><span>Grab gold gifts.</span><span>Save Christmas.</span></div></div><div class="hero-character" aria-hidden="true"><span class="speech-bubble">Brrr!</span><div class="sprite snowman hero-snowman"></div></div><span class="winter-location">SNOWFALL VILLAGE · TWO SCANNERS · TWO MINUTES</span>`;
   } else {
     const players = Object.values(state.players).filter(p => state.mode !== 'single' || p.color === state.singleColor).sort((a,b)=>b.score-a.score);
     const tied = players.length > 1 && players[0].score === players[1].score;
     const headline = tied ? 'Tie.' : 'Round complete.';
     $('banner').className = 'banner results-banner';
-    $('banner').innerHTML = `<div class="results-copy"><p class="eyebrow">${icon('trophy')} ROUND RESULTS</p><h2>${headline}</h2><p class="winner-title">${tied ? 'Tied score.' : `${escape(players[0].name)} ${state.mode === 'single' ? 'completed the round.' : 'wins.'}`}</p><div class="result-scores">${players.map((p,i)=>`<div class="result-player ${p.color} ${i===0&&!tied?'winner':''}"><small>${escape(p.name)}</small><strong>${p.score.toLocaleString()}<span> PTS</span></strong><p>${p.kills} cleared · ${p.mistakes || 0} mistakes</p><small>Best streak: ${p.bestStreak || 0}</small></div>`).join('')}</div><button class="primary" data-next ${state.persistence!=='saved'?'disabled':''}>Next group ${icon('arrow')}</button><p class="result-note">${state.persistence==='saved'?'Scores saved.':state.persistence==='error'?'Score saving failed. Retrying automatically…':'Saving scores…'}</p></div><div class="results-turkey sprite tom" aria-hidden="true"></div>`;
+    $('banner').innerHTML = `<div class="results-copy"><p class="eyebrow">${icon('trophy')} ROUND RESULTS</p><h2>${headline}</h2><p class="winner-title">${tied ? 'Tied score.' : `${escape(players[0].name)} ${state.mode === 'single' ? 'completed the round.' : 'wins.'}`}</p><div class="result-scores">${players.map((p,i)=>`<div class="result-player ${p.color} ${i===0&&!tied?'winner':''}"><small>${escape(p.name)}</small><strong>${p.score.toLocaleString()}<span> PTS</span></strong><p>${p.kills} cleared · ${p.mistakes || 0} mistakes</p><small>Best streak: ${p.bestStreak || 0}</small></div>`).join('')}</div><button class="primary" data-next ${state.persistence!=='saved'?'disabled':''}>Next group ${icon('arrow')}</button><p class="result-note">${state.persistence==='saved'?'Scores saved.':state.persistence==='error'?'Score saving failed. Retrying automatically…':'Saving scores…'}</p></div><div class="results-mascot sprite gift" aria-hidden="true"></div>`;
   }
 }
 function renderPresence() {
@@ -178,7 +178,7 @@ function render(hit) {
   $('reset').disabled = state.persistence !== 'saved';
   $('start').disabled = !connected;
   for (const c of ['green','red']) {
-    const p = state.players[c]; $('' + c + '-name').textContent = p.name || (c === 'green' ? 'Green hunter' : 'Red hunter');
+    const p = state.players[c]; $('' + c + '-name').textContent = p.name || (c === 'green' ? 'Green player' : 'Red player');
     $('player-' + c).classList.toggle('off-turn', state.phase === 'playing' && (state.mode === 'single' ? c !== state.singleColor : state.mode === 'alternating' && c !== state.turn)); $(c + '-score').textContent = p.score;
     $(c + '-hits').textContent = `${p.kills} cleared · ${p.mistakes || 0} mistakes`;
     $(c + '-multiplier').textContent = `×${scoreMultiplier(p.streak)}`;
@@ -244,4 +244,5 @@ function animate() {
   requestAnimationFrame(animate);
 }
 requestAnimationFrame(animate);
+
 

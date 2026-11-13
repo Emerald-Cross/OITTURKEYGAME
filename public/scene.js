@@ -22,7 +22,7 @@ export function createScene({ reducedMotion = false, onSafe = () => {} } = {}) {
         creature.dataset.code = target.code; creature.dataset.spawn = target.spawnId;
         creature.dataset.action = target.action;
         creature.classList.remove('hit', 'cleared-hit', 'mistake', 'safe', 'escaped'); $('damage').hidden = true;
-        creature.classList.toggle('golden', target.code === 'TKY4');
+        creature.classList.toggle('golden', target.code === 'GIFT');
         document.querySelector('.arena').classList.remove('mistake');
         clearTimeout(hitTimer);
         $('animal-art').className = `animal sprite ${art.art}`;
@@ -41,7 +41,7 @@ export function createScene({ reducedMotion = false, onSafe = () => {} } = {}) {
         const mistake = hit.kind === 'penalty';
         creature.style.setProperty('--hit', mistake ? '#ffc3a2' : hit.color === 'green' ? '#d5f39a' : '#ffc3a2');
         clearTimeout(hitTimer); creature.classList.remove('hit', 'cleared-hit', 'mistake', 'safe', 'escaped');
-        creature.querySelectorAll('.impact-feathers, .damage, .animal').forEach(node => node.getAnimations().forEach(animation => animation.cancel()));
+        creature.querySelectorAll('.impact-burst, .damage, .animal').forEach(node => node.getAnimations().forEach(animation => animation.cancel()));
         creature.classList.add(mistake ? 'mistake' : 'hit'); creature.classList.toggle('cleared-hit', hit.killed);
         document.querySelector('.arena').classList.toggle('mistake', mistake);
         $('damage').textContent = mistake ? hit.points < 0 ? `−${-hit.points}` : 'HOLD FIRE' : `+${hit.points}`;
@@ -73,9 +73,10 @@ export function createScene({ reducedMotion = false, onSafe = () => {} } = {}) {
       if (lastPhase !== pose.phase) {
         lastPhase = pose.phase;
         $('encounter-cue').textContent = pose.phase === 'quiet' || pose.phase === 'cleared' ? '' : targets[target.code].call;
-        $('encounter-tag').textContent = target.action === 'avoid' ? 'PROTECTED WILDLIFE' : target.code === 'TKY4' ? 'BONUS TARGET' : 'TARGET';
+        $('encounter-tag').textContent = target.action === 'avoid' ? 'HOLD YOUR FIRE' : target.code === 'GIFT' ? 'GOLD DELIVERY' : 'SNOWBALL TARGET';
       }
       $('window-fill').style.transform = `scaleX(${Math.max(0, Math.min(1, (encounter.concealAt - now) / (encounter.concealAt - encounter.revealAt)))})`;
     }
   };
 }
+
