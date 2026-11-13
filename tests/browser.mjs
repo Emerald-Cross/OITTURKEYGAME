@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, access, mkdir } from 'node:fs/promises';
+import { mkdtemp, rm, access, mkdir, appendFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -88,9 +88,9 @@ try{
  await r.locator('#simulator summary').click();await scan(r,'TKY1');assert.equal(runtime.game.players.red.score,0);assert.equal(runtime.game.players.red.mistakes,0);
  await expose('TKY4');await scanArea(tv,440);assert.equal(await tv.locator('#creature').getAttribute('class').then(s=>s.includes('golden')),true);await capture(tv,'05-gold');
  await scan(r,'TKY4');await tv.waitForFunction(()=>document.querySelector('#red-score').textContent==='30');
- await expose('TKY1');await g.bringToFront();await g.locator('#arm').click();await g.locator('#how-to').click();await g.evaluate(()=>document.querySelector('#help-dialog').focus());
+ await expose('TKY1');await g.bringToFront();await g.locator('#simulator summary').click();await g.locator('#arm').click();await g.locator('#how-to').click();await g.evaluate(()=>document.querySelector('#help-dialog').focus());
  await g.keyboard.type('TKY1');await g.keyboard.press('Enter');assert.equal(runtime.game.players.green.score,10,'Instructions pause hardware capture');await g.keyboard.press('Escape');await g.locator('#arm').click();
- await g.keyboard.type('TKY1');await g.keyboard.press('Enter');await tv.waitForFunction(()=>document.querySelector('#green-score').textContent==='20');
+ await g.keyboard.type('TKY1');await g.keyboard.press('Enter');await tv.waitForFunction(()=>document.querySelector('#green-score').textContent==='20');await g.locator('#simulator summary').click();
  await expose('TKY1');await scan(g,'TKY1');await tv.waitForFunction(()=>document.querySelector('#green-multiplier').textContent==='×2');
  await expose('TKY1');await scan(g,'TKY1');await tv.waitForFunction(()=>document.querySelector('#green-score').textContent==='50');assert.equal(runtime.game.players.green.streak,4);
  await expose('DEER');await scanArea(tv,440);assert.equal(await tv.locator('#animal-health').textContent(),'HOLD FIRE');await capture(tv,'06-hold-fire');
@@ -137,4 +137,11 @@ try{
  }
  assert.equal(seen.size,Object.keys(ANIMALS).length);await finish();assert.equal(errors.length,0,errors.join('\n'));
  console.log('PASS: one-scan turkey clears, gold bonus, shoot/hold-fire choices, once-per-animal penalties, streak multipliers, strong clear feedback, duplicate/race handling, capture/help isolation, safe holds, client expiry, both reconnects, multiple TVs, deadline, modes, results/reset, escaped names, reduced motion, full sprites, and every animal/path/viewport QR layout.');
+}catch(error){
+ if(process.env.GITHUB_OUTPUT){
+  const line=String(error.stack).match(/tests\/browser\.mjs:(\d+):/);
+  const summary=('L'+(line?.[1]||'?')+' '+runtime.game.encounter?.code+' '+Math.round(now-(runtime.game.startedAt||now))+'ms G'+runtime.game.players.green.score+'/R'+runtime.game.players.red.score+' '+String(error.message).replace(/[\r\n]+/g,' ')).slice(0,230);
+  await appendFile(process.env.GITHUB_OUTPUT,'error='+summary+'\n');
+ }
+ throw error;
 }finally{await browser?.close();await runtime.close();await rm(dir,{recursive:true,force:true});}

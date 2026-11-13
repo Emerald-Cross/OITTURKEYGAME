@@ -186,3 +186,6 @@
 @media(max-width:1100px){.hunt-rules{top:127px;font-size:9px;gap:12px}.gallery-page .encounter-info{top:165px}}
 @media(max-width:760px){.hunt-rules{display:none}.streak-badge{font-size:8px;gap:5px;margin-top:5px}.streak-badge b{font-size:10px}.gallery-page .encounter-info{top:155px}.target-action{font-size:10px;padding:5px 8px}.help-targets .sprite{width:65px}.help-targets strong{font-size:19px}}
 @media(prefers-reduced-motion:reduce){.creature.cleared-hit .impact-ring{animation:none;opacity:.6}.creature.cleared-hit .impact-feathers{animation:none;opacity:1;scale:1}.creature.cleared-hit .animal{animation:none;opacity:0}.creature.cleared-hit .damage{animation:none;translate:-50% 0;opacity:1}}
+
+.gallery-page .player-identity>small[id$="-hits"]{font-size:10px;color:#ece7c0}
+@media(max-width:760px){.gallery-page .player-identity>small[id$="-hits"]{font-size:7px}}
