@@ -1,12 +1,17 @@
 """Build the original, self-contained vector art. No runtime dependencies."""
 from pathlib import Path
 from random import Random
+import re
 
 DEST = Path(__file__).resolve().parents[1] / 'public' / 'assets'
 DEST.mkdir(parents=True, exist_ok=True)
 
 def save(name, body, view='0 0 1000 1000', defs=''):
-    (DEST / f'{name}.svg').write_text(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{view}"><defs>{defs}</defs>{body}</svg>\n')
+    svg = f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="{view}"><defs>{defs}</defs>{body}</svg>\n'
+    # Keep the vectors compatible with SVG 1.1 renderers as well as browsers.
+    svg = re.sub(r'fill="#([0-9a-fA-F]{6})([0-9a-fA-F]{2})"', lambda m: f'fill="#{m[1]}" fill-opacity="{int(m[2],16)/255:.3f}"', svg)
+    svg = svg.replace('<use href=', '<use xlink:href=')
+    (DEST / f'{name}.svg').write_text(svg)
 
 def ellipse(x,y,rx,ry,color):
     return f'<ellipse cx="{x}" cy="{y}" rx="{rx}" ry="{ry}" fill="{color}"/>'
