@@ -1,7 +1,7 @@
 # Optional development helper; runtime uses committed SVGs. Requires reportlab.
 from pathlib import Path
 from reportlab.graphics.barcode.qr import QrCodeWidget
-for payload in ['TKY1', 'TKY4', 'BEAR']:
+for payload in ['TKY1', 'TKY4', 'BEAR', 'DEER']:
     widget = QrCodeWidget(payload, barLevel='M')
     widget.qr.make()
     qr = widget.qr.modules

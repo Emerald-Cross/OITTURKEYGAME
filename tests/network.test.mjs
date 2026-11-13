@@ -13,60 +13,49 @@ export async function peer(url,role,color) {
  return {ws,messages,next,call:(event,data)=>new Promise((resolve,reject)=>{const seq=++id;const timer=setTimeout(()=>{acks.delete(seq);reject(Error('Ack timeout'));},3000);acks.set(seq,r=>{clearTimeout(timer);resolve(r);});ws.send(JSON.stringify({id:seq,event,data}));})};
 }
 async function fixture(t) {
- let now=100000;const dir=await mkdtemp(join(tmpdir(),'turkey-net-'));const runtime=await createRuntime({dataDir:dir,clock:()=>now});const addr=await runtime.listen(0,'127.0.0.1');const url=`ws://127.0.0.1:${addr.port}`;
+ let now=100000;let seed=7;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+ const dir=await mkdtemp(join(tmpdir(),'turkey-net-'));const runtime=await createRuntime({dataDir:dir,clock:()=>now,random});const addr=await runtime.listen(0,'127.0.0.1');const url=`ws://127.0.0.1:${addr.port}`;
  const peers=[];t.after(async()=>{peers.forEach(p=>p.ws.close());await runtime.close();await rm(dir,{recursive:true,force:true});});
- const make=async(role,color)=>{const p=await peer(url,role,color);peers.push(p);return p;};const move=async value=>{now=value;await new Promise(resolve=>setTimeout(resolve,70));};
- const reveal=async(code='TKY4')=>{while(runtime.game.encounter.code!==code)await move(runtime.game.encounter.nextAt);await move(runtime.game.encounter.revealAt);return runtime.game.snapshot();};
- return {runtime,make,url,reveal,move};
+ const make=async(role,color)=>{const p=await peer(url,role,color);peers.push(p);return p;};
+ const move=async value=>{now=value;await new Promise(resolve=>setTimeout(resolve,75));};
+ const reveal=async(code)=>{
+  if(runtime.game.encounter.clearedAt!==null||now>=runtime.game.encounter.concealAt)await move(runtime.game.encounter.nextAt);
+  for(let i=0;code&&runtime.game.encounter.code!==code;i++){assert.ok(i<16&&runtime.game.phase==='playing');await move(runtime.game.encounter.nextAt);}
+  await move(Math.max(now,runtime.game.encounter.revealAt));return runtime.game.snapshot();
+ };
+ let seq=0;const shot=(code=runtime.game.encounter.code)=>({roundId:runtime.game.roundId,payload:code,spawnId:runtime.game.targets.find(t=>t.code===code)?.spawnId,eventId:`network-event-${++seq}`});
+ return{runtime,make,url,reveal,move,shot};
 }
-test('real WebSockets: red/green credit, duplicate delivery, TV state, reconnect, reset, role enforcement',async t=>{
- const {runtime,make,reveal}=await fixture(t);const tv=await make('gallery');const green=await make('station','green');const red=await make('station','red');
- await green.call('name',{name:'Grace'});await red.call('name',{name:'Rowan'});
- assert.equal((await tv.call('control',{action:'start',mode:'simultaneous'})).ok,true);
- const started=await reveal();
- const shot=(eventId,props={})=>({roundId:started.roundId,payload:'TKY4',spawnId:started.targets[1].spawnId,eventId,...props});
- const g=shot('green-event-0001');assert.equal((await green.call('scan',g)).accepted,true);
- const first=await tv.next('state',p=>p.hit?.eventId===g.eventId);assert.equal(first.state.targets[1].hp,3);assert.equal(first.state.players.green.score,25);
- assert.equal((await green.call('scan',g)).duplicate,true);assert.equal(runtime.game.targets[1].hp,3);
- assert.equal((await red.call('scan',shot('red-event-0001'))).accepted,true);
- const second=await tv.next('state',p=>p.hit?.eventId==='red-event-0001');assert.equal(second.state.targets[1].hp,2);assert.equal(second.state.players.red.score,25);
- // Two real sockets deliver at once; synchronous authority prevents a lost update.
- await Promise.all([green.call('scan',shot('green-event-0002')),red.call('scan',shot('red-event-0002'))]);
- assert.equal(runtime.game.targets[1].hp,0);assert.equal(runtime.game.players.red.score,50);assert.equal(runtime.game.players.green.score,50);
- green.ws.close();const reconnected=await make('station','green');const recovered=(await reconnected.next('state')).state;assert.equal(recovered.targets[1].hp,0);assert.equal(recovered.players.green.score,50);
- assert.equal((await reconnected.call('scan',g)).duplicate,true);
- assert.match((await red.call('control',{action:'reset'})).error,/gallery/);
- assert.equal((await tv.call('scan',g)).accepted,false);
- await tv.call('control',{action:'finish'});await runtime.scores.pending;
- assert.equal(runtime.scores.board().length,2);
- await tv.call('control',{action:'reset'});assert.equal(runtime.game.phase,'lobby');assert.equal(runtime.game.players.green.score,0);
- assert.equal((await red.call('scan',shot('old-round-event'))).reason,'Old round ignored.');
+test('real WebSockets: one winner, duplicate delivery, authoritative TV, reconnect, and reset',async t=>{
+ const {runtime,make,reveal,shot}=await fixture(t);const tv=await make('gallery'),g=await make('station','green'),r=await make('station','red');
+ await g.call('name',{name:'Grace'});await r.call('name',{name:'Rowan'});await tv.call('control',{action:'start',mode:'simultaneous'});await reveal();
+ const data=shot();const hits=await Promise.all([g.call('scan',data),r.call('scan',shot())]);assert.equal(hits.filter(h=>h.accepted).length,1);
+ const winner=hits[0].accepted?g:r,result=hits.find(h=>h.accepted),packet=await tv.next('state',p=>p.hit?.eventId===result.eventId);
+ assert.equal(packet.hit.killed,true);assert.equal(packet.state.targets.filter(t=>t.active).length,0);assert.equal(Object.values(runtime.game.players).reduce((n,p)=>n+p.score,0),10);
+ if(winner===g){assert.equal((await g.call('scan',data)).duplicate,true);g.ws.close();const reconnect=await make('station','green');const state=(await reconnect.next('state')).state;assert.equal(state.players.green.score,10);assert.equal((await reconnect.call('scan',data)).duplicate,true);}
+ assert.match((await r.call('control',{action:'reset'})).error,/gallery/);assert.equal((await tv.call('scan',data)).accepted,false);
+ await tv.call('control',{action:'finish'});await runtime.scores.pending;assert.equal(runtime.scores.board().length,2);await tv.call('control',{action:'reset'});assert.equal(runtime.game.players.green.streak,0);assert.equal(runtime.game.players.red.mistakes,0);
+ assert.equal((await r.call('scan',data)).reason,'Old round ignored.');
 });
-test('software frame diagnostics are correlated without trusting clocks from other machines',async t=>{
- const {make,reveal}=await fixture(t);const tv=await make('gallery');const green=await make('station','green');
- await green.call('name',{name:'Solo'});await tv.call('control',{action:'start',mode:'single',singleColor:'green'});
- const s=await reveal();
- await green.call('scan',{roundId:s.roundId,payload:'TKY4',spawnId:s.targets[1].spawnId,eventId:'diagnostic-hit'});
- const {hit}=await tv.next('state',p=>p.hit?.eventId==='diagnostic-hit');
- assert.ok(hit.serverProcessMs>=0);tv.ws.send(JSON.stringify({event:'display:frame',data:{traceId:hit.traceId,domMs:1,frameWaitMs:5}}));
- const metric=await tv.next('diagnostic');assert.equal(metric.domMs,1);assert.ok(metric.serverToFrameReturnMs>=0);
+test('wildlife penalties publish immediately, stay one per color, and leave the code active',async t=>{
+ const {runtime,make,reveal,shot}=await fixture(t);const tv=await make('gallery'),g=await make('station','green'),r=await make('station','red');
+ await g.call('name',{name:'G'});await r.call('name',{name:'R'});await tv.call('control',{action:'start',mode:'simultaneous'});
+ await reveal('TKY4');await g.call('scan',shot());await reveal('DEER');const data=shot();const penalty=await g.call('scan',data);
+ assert.equal(penalty.kind,'penalty');assert.equal(penalty.points,-25);const packet=await tv.next('state',p=>p.hit?.eventId===data.eventId);
+ assert.equal(packet.state.players.green.score,5);assert.equal(packet.state.players.green.streak,0);assert.equal(packet.state.targets.find(t=>t.code==='DEER').active,true);
+ assert.equal((await g.call('scan',data)).duplicate,true);assert.equal((await g.call('scan',shot())).accepted,false);assert.equal(runtime.game.players.green.score,5);
+ assert.equal((await r.call('scan',shot())).points,0);assert.equal(runtime.game.players.red.mistakes,1);
 });
-test('slow score persistence does not enter the scan or broadcast path',async t=>{
- const {runtime,make,reveal}=await fixture(t);let calls=0;let release;
- runtime.scores.write=()=>{calls++;return new Promise(resolve=>{release=resolve;});};
- const tv=await make('gallery');const green=await make('station','green');await green.call('name',{name:'Solo'});await tv.call('control',{action:'start',mode:'single'});
- const s=await reveal('BEAR');
- assert.equal((await green.call('scan',{roundId:s.roundId,payload:'BEAR',spawnId:s.targets[2].spawnId,eventId:'slow-store-hit'})).accepted,true);
- const packet=await tv.next('state',p=>p.hit?.eventId==='slow-store-hit');assert.equal(packet.state.targets[2].hp,5);assert.equal(calls,0);
- // Avoid intercepting finish writes: the assertion above is about the active-hit path.
- runtime.scores.write=(...args)=>import('node:fs/promises').then(fs=>fs.writeFile(...args));
+test('frame diagnostics retain the immediate hit path and do not wait for score persistence',async t=>{
+ const {runtime,make,reveal,shot}=await fixture(t);let writes=0;const original=runtime.scores.write;runtime.scores.write=(...args)=>{writes++;return original(...args);};
+ const tv=await make('gallery'),g=await make('station','green');await g.call('name',{name:'Solo'});await tv.call('control',{action:'start',mode:'single'});await reveal();
+ const data=shot();assert.equal((await g.call('scan',data)).accepted,true);const {hit}=await tv.next('state',p=>p.hit?.eventId===data.eventId);assert.equal(writes,0);
+ tv.ws.send(JSON.stringify({event:'display:frame',data:{traceId:hit.traceId,domMs:1,frameWaitMs:5}}));const metric=await tv.next('diagnostic');assert.equal(metric.domMs,1);assert.ok(metric.serverToFrameReturnMs>=0);
+ await reveal('BEAR');await g.call('scan',shot());assert.equal(writes,0);
 });
-test('a new TV gets the latest authoritative state and the HTTP server exposes only public files',async t=>{
- const {runtime,make,url,reveal}=await fixture(t);const tv=await make('gallery');const green=await make('station','green');
- await green.call('name',{name:'Player'});await tv.call('control',{action:'start',mode:'single'});
- const s=await reveal('BEAR');await green.call('scan',{roundId:s.roundId,spawnId:s.targets[2].spawnId,payload:'BEAR',eventId:'new-tv-hit'});
- const tv2=await make('gallery');const joined=(await tv2.next('state')).state;assert.equal(joined.targets[2].hp,5);assert.equal(joined.players.green.score,40);
- const base=url.replace('ws:','http:');for(const path of ['/gallery','/scan/green','/scan/red','/qr/TKY1.svg'])assert.equal((await fetch(base+path)).status,200);
- assert.equal((await fetch(base+'/data/scores.json')).status,404);assert.equal((await fetch(base+'/server.mjs')).status,404);
- assert.equal((await fetch(base+'/gallery',{method:'POST'})).status,405);
+test('a second TV receives the same rule and wildlife state; HTTP exposes the new QR only as a public asset',async t=>{
+ const {runtime,make,reveal,shot,url}=await fixture(t);const tv=await make('gallery'),g=await make('station','green');await g.call('name',{name:'Solo'});await tv.call('control',{action:'start',mode:'single'});await reveal();await g.call('scan',shot());await reveal('DEER');
+ const tv2=await make('gallery');const s=(await tv2.next('state')).state;assert.equal(s.players.green.score,10);assert.equal(s.encounter.code,'DEER');assert.equal(s.targets.find(t=>t.code==='DEER').action,'avoid');
+ const base=url.replace('ws:','http:');for(const path of ['/gallery','/scan/green','/scan/red','/qr/DEER.svg'])assert.equal((await fetch(base+path)).status,200);
+ assert.equal((await fetch(base+'/data/scores.json')).status,404);assert.equal((await fetch(base+'/server.mjs')).status,404);assert.equal((await fetch(base+'/gallery',{method:'POST'})).status,405);
 });

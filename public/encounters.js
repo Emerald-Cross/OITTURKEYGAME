@@ -1,13 +1,22 @@
 // Shared encounter timing: the server decides when a code can score; the TV
 // animates the same timeline without sending animation frames over the network.
-export const ENCOUNTER_PATTERN = ['TKY1', 'TKY4', 'TKY1', 'BEAR', 'TKY4', 'TKY1', 'BEAR', 'TKY4'];
-export const REVEAL_MS = { TKY1: 5200, TKY4: 6500, BEAR: 7200 };
-export const APPROACH_MS = 1700;
-export const PEEK_MS = 450;
-export const DODGE_MS = 650;
-export const RETREAT_MS = 850;
-export const QUIET_MS = 400;
-export const CLEAR_MS = 1250;
+export const RULESET = 'quickdraw-v1';
+export const ANIMALS = {
+  TKY1: { code: 'TKY1', label: 'Turkey', action: 'shoot', maxHp: 1, points: 10, art: 'turkey', call: 'Gobble gobble' },
+  TKY4: { code: 'TKY4', label: 'Gold turkey', action: 'shoot', maxHp: 1, points: 30, art: 'tom', call: 'Gobble gobble' },
+  BEAR: { code: 'BEAR', label: 'Bear', action: 'avoid', maxHp: 1, points: 0, penalty: 25, art: 'bear', call: 'Grrr' },
+  DEER: { code: 'DEER', label: 'Deer', action: 'avoid', maxHp: 1, points: 0, penalty: 25, art: 'deer', call: '' }
+};
+// Shuffle a balanced bag on the server: six scoring targets, two hold-fire targets.
+export const ENCOUNTER_BAG = ['TKY1', 'TKY1', 'TKY1', 'TKY1', 'TKY4', 'TKY4', 'DEER', 'BEAR'];
+export const scoreMultiplier = streak => Math.min(3, 1 + Math.floor((streak || 0) / 3));
+export const REVEAL_MS = { TKY1: 5000, TKY4: 5000, BEAR: 3000, DEER: 3000 };
+export const APPROACH_MS = 450;
+export const PEEK_MS = 150;
+export const DODGE_MS = 200;
+export const RETREAT_MS = 500;
+export const QUIET_MS = 150;
+export const CLEAR_MS = 450;
 
 export function encounterPhase(encounter, now) {
   if (!encounter) return 'quiet';

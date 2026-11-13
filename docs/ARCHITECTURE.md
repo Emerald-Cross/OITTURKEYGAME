@@ -10,7 +10,7 @@ The old capture handler immediately posts an HTTP scan at Enter. The API perform
 
 1. The adapted scanner buffer calls back synchronously on Enter. No debounce. It clears incomplete input after a one-second gap or focus change.
 2. The capture page sends a JSON event over its existing WebSocket. Each Enter has a random browser-instance ID plus increasing sequence. Short payloads are TKY1, TKY4, BEAR; round and target-incarnation IDs are software metadata, not QR data.
-3. One Node event loop validates role/color, round identity, event identity, active phase, deadline, current turn, active target, and incarnation. It decrements health and awards per-hit credit synchronously.
+3. One Node event loop validates role/color, round identity, event identity, active phase, deadline, current turn, active target, and incarnation. It clears a turkey and awards streak-adjusted points, or records a once-per-player wildlife penalty, synchronously.
 4. The server broadcasts updated state plus a hit event immediately, then acknowledges the capture page. The TV updates the DOM in that message handler and flashes damage. Different sockets cannot interleave inside this synchronous mutation.
 5. Persistence is absent from active hits. At round completion only, the score store queues a file write and atomic rename, without blocking display publication. Save errors remain visible and are retried every five seconds.
 
@@ -18,8 +18,8 @@ Native browser WebSockets and a vendored Faye server replace the old Socket.IO i
 
 ## Consistency and recovery
 
-- Duplicate event IDs are scoped to a color and round and return the original result with `duplicate: true`; no rebroadcast or new scoring. Rejected submissions are remembered too. The map has a 20,000-submission limit per round; each reset discards it.
-- Fresh IDs allow legitimate repeated shots. There is no time-based target debounce.
+- Duplicate event IDs are scoped to a color and round and return the original result with `duplicate: true`; no rebroadcast, new scoring, or repeated penalty. Rejected submissions are remembered too. The map has a 20,000-submission limit per round; each reset discards it.
+- Fresh IDs identify separate trigger events. A turkey is claimable once per appearance. Wildlife can penalize each participating color once per appearance; subsequent fresh deliveries are rejected until the next appearance. There is no cross-target shot cooldown.
 - Every animal appearance has a new ID, including a retreating survivor. A packet from a previous appearance cannot damage a returning animal, even if its QR payload is identical.
 - Disconnected clients do not queue scans. Pending acknowledgements fail on disconnect. Unconfirmed accepted hits can still appear on the TV; no automatic replay occurs. A reconnect fetches a full snapshot over the new socket, preserving the server's health and scores. Pings detect dead connections; detection of a physical network failure is not instantaneous.
 - A server restart assigns a new round ID, rejecting packets from the aborted round. Completed leaderboards reload from disk. Active rounds intentionally do not resume.
@@ -40,10 +40,14 @@ No cross-device wall-clock subtraction is used for these metrics. The game count
 
 To measure physical response, film scanner trigger/beep and the cabled TV together at high frame rate. Count frames over repeated shots and report median and slow cases, together with the software diagnostics. This adds scanner decoding, OS input delivery, and TV display delay that software instrumentation cannot capture here.
 
-## Single-animal encounters
+## One-scan reaction loop
 
-`public/encounters.js` supplies shared timing and deterministic 3D billboard paths. The server owns the encounter: approach (1.7 s), peek (0.45 s), dodge/settle (0.65 s), stationary reveal (5.2/6.5/7.2 s), retreat (0.85 s), and a short quiet gap. `tick()` activates only the encounter animal during `[revealAt, concealAt)`. A scan also calls `tick()` before validation, so the exact concealment and round deadlines apply even between timer callbacks. Killing the animal ends the exposure synchronously and advances to the next encounter after a 1.25 s puff/quiet transition.
+`public/encounters.js` is the shared animal/rule and timing source. Turkey and gold-turkey scans clear the animal in one event. Deer and bear codes are hold-fire targets. The server shuffles a balanced eight-animal bag, starts each round with a normal turkey, and chooses the illustrated path. Clients receive the current encounter, never future bag contents.
 
-An ordered encounter pattern rotates turkeys and bears through four paths. Partial health survives retreats. A cleared animal recovers full health the next time its species appears. New round identities, duplicate-event handling, scanner buffering, per-hit scoring, and the synchronous WebSocket damage path remain in place.
+Approach, peek, and dodge take 450/150/200 ms. Turkey exposures last five seconds and wildlife exposures three. A scoring hit hides the QR synchronously, gives a 450 ms impact transition, and starts the next 800 ms approach: 1.25 seconds to the next scan window. Expiry and turn changes remain on the 50 ms timer, but every scan also calls `tick()` so reveal/conceal and round boundaries are exact even between timer callbacks.
 
-`public/scene.js` uses the snapshot timeline and a monotonic local clock to animate x/y/z travel and turns between exposures. Animal bodies retain the full sprite during movement; the landscape layers provide natural occlusion. The reveal pose is fixed and front facing; the one QR image retains its original payload, four-module quiet zone, pure black/white colors, and square shape. The TV hides codes on exposure expiration even without a fresh packet, on disconnect, at results, and on lethal damage. Reduced motion removes travel and keeps the same server scan windows. Animation never grants points or schedules damage.
+Each player has score, hits/clears, mistakes, streak, and best streak. Three clean hits unlock the next ×2 multiplier; six unlock ×3. A wildlife scan deducts the smaller of 25 or the player's current score and resets their streak. The encounter records which colors were penalized, preventing held-trigger drains. Duplicate event IDs return the original outcome without applying it again. An opponent claiming a turkey is not a mistake for a losing scan. Avoiding wildlife and missing a turkey do not reset clean trigger decisions.
+
+`public/scene.js` keeps the one QR square, steady, and untinted during each reveal. The gold filter is on the sprite alone. Turkey clears can use large effects because the code has already been hidden; penalty feedback stays above a wildlife QR. The original full-body movement fix remains in place: landscape layers provide cover, with no crop mask on the animal. Reduced motion suppresses travel and tumbling without changing decisions or scoring.
+
+The score record includes `quickdraw-v1`. `ScoreStore.board(ruleset)` filters displayed history for compatible scoring, while retaining older rounds on disk. Scanner buffering, volatile WebSocket delivery, appearance IDs, role gates, the two-minute deadline, 15-second turns, synchronous authoritative publication, and asynchronous end-of-round storage remain in place.

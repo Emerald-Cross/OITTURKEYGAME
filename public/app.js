@@ -3,6 +3,7 @@ import { connectEvents } from '/transport.js';
 import { galleryView, stationView, helpView, icon, targets as art } from '/views.js';
 import { createSound } from '/sound.js';
 import { createScene } from '/scene.js';
+import { scoreMultiplier } from '/encounters.js';
 const $ = id => document.getElementById(id);
 const escape = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const color = location.pathname.match(/^\/scan\/(green|red)$/)?.[1];
@@ -46,7 +47,7 @@ if (role === 'gallery') {
   document.body.dataset.phase = 'lobby';
   document.body.classList.add('gallery-page');
   $('app').innerHTML = galleryView();
-  scene = createScene({ reducedMotion });
+  scene = createScene({ reducedMotion, onSafe: () => sound.play('safe') });
   $('camp').hidden = false;
   $('camp').onclick = () => $('setup-dialog').showModal();
   $('close-setup').onclick = () => $('setup-dialog').close();
@@ -79,8 +80,8 @@ if (role === 'gallery') {
   document.addEventListener('keydown', event => {
     if (event.target.closest('input,select,textarea,[contenteditable=true]')) return;
     if (!armed || !document.hasFocus() || $('help-dialog').open) return;
-    if ($('simulator').open && ['1','4','b','B'].includes(event.key) && !event.repeat && !event.ctrlKey && !event.metaKey && !event.altKey) {
-      event.preventDefault(); submit(({ '1':'TKY1', '4':'TKY4', b:'BEAR', B:'BEAR' })[event.key], performance.now(), true); return;
+    if ($('simulator').open && ['1','4','b','B','d','D'].includes(event.key) && !event.repeat && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault(); submit(({ '1':'TKY1', '4':'TKY4', b:'BEAR', B:'BEAR', d:'DEER', D:'DEER' })[event.key], performance.now(), true); return;
     }
     scanner(event);
   });
@@ -114,7 +115,7 @@ function sendShot(shot, at) {
   socket.timeout(1500).volatile.emit('scan', shot, (error, result) => {
     if (error) { $('last-scan').textContent = `${shot.payload} · unconfirmed; check the TV.`; return; }
     const elapsed = performance.now() - at;
-    $('last-scan').textContent = result.duplicate ? `${shot.payload} · duplicate delivery, no extra damage.` : result.accepted ? `${shot.payload} · hit! +${result.points} · score ${result.score}` : `${shot.payload} · ${result.reason}`;
+    $('last-scan').textContent = result.duplicate ? `${shot.payload} · duplicate delivery, no extra damage.` : result.accepted ? result.kind === 'penalty' ? `${shot.payload} · hold fire · ${result.points} points · streak reset` : `${shot.payload} · hit! +${result.points} · ×${result.multiplier} · score ${result.score}` : `${shot.payload} · ${result.reason}`;
     $('scan-diagnostic').textContent = `Enter/click → acknowledgement ${elapsed.toFixed(1)} ms · server handler ${result.serverProcessMs?.toFixed(2)} ms`;
   });
 }
@@ -124,7 +125,7 @@ function updateMode() {
   document.querySelectorAll('[data-mode]').forEach(button => { const active = button.dataset.mode === mode; button.classList.toggle('selected', active); button.setAttribute('aria-pressed', String(active)); });
   $('color-choice-label').hidden = mode === 'simultaneous';
   $('color-choice-copy').textContent = mode === 'single' ? 'Your scanner' : 'Who goes first?';
-  $('mode-note').textContent = mode === 'single' ? 'One player. Two-minute round.' : mode === 'alternating' ? 'Scanners alternate every 15 seconds.' : 'Both players share target health.';
+  $('mode-note').textContent = mode === 'single' ? 'One player. Two-minute round.' : mode === 'alternating' ? 'Scanners alternate every 15 seconds.' : 'Both players race for the same one-scan targets.';
   for (const c of ['green','red']) { const inactive = mode === 'single' && c !== $('chosen-color').value; $('name-'+c).disabled = inactive; $('name-'+c).closest('label').classList.toggle('inactive', inactive); }
 }
 function renderBoard(force = false) {
@@ -141,13 +142,13 @@ function renderBanner() {
   if (key === lastBanner) return; lastBanner = key;
   if (state.phase === 'lobby') {
     $('banner').className = 'banner lobby-banner';
-    $('banner').innerHTML = `<div class="lobby-copy"><p class="eyebrow hero-kicker">OIT · TURKEY HUNT · AUTUMN ’26</p><h1>Turkey<br><em>Hunt.</em></h1><p>Scan the code when an animal stops in the clearing.</p><button type="button" data-setup class="primary hero-cta">Set up hunt ${icon('arrow')}</button><div class="hero-steps"><span>Wait for the code.</span><span>Scan the animal.</span><span>Score points.</span></div></div><div class="hero-character" aria-hidden="true"><span class="speech-bubble">Gobble gobble</span><div class="sprite tom hero-tom"></div></div><span class="woodland-location">AUTUMN WOODS</span>`;
+    $('banner').innerHTML = `<div class="lobby-copy"><p class="eyebrow hero-kicker">OIT · TURKEY HUNT · AUTUMN ’26</p><h1>Turkey<br><em>Hunt.</em></h1><p>Scan turkeys. Hold fire for deer and bears.</p><button type="button" data-setup class="primary hero-cta">Set up hunt ${icon('arrow')}</button><div class="hero-steps"><span>One scan per turkey.</span><span>Gold is worth more.</span><span>Leave wildlife alone.</span></div></div><div class="hero-character" aria-hidden="true"><span class="speech-bubble">Gobble gobble</span><div class="sprite tom hero-tom"></div></div><span class="woodland-location">AUTUMN WOODS</span>`;
   } else {
     const players = Object.values(state.players).filter(p => state.mode !== 'single' || p.color === state.singleColor).sort((a,b)=>b.score-a.score);
     const tied = players.length > 1 && players[0].score === players[1].score;
     const headline = tied ? 'Tie.' : 'Round complete.';
     $('banner').className = 'banner results-banner';
-    $('banner').innerHTML = `<div class="results-copy"><p class="eyebrow">${icon('trophy')} ROUND RESULTS</p><h2>${headline}</h2><p class="winner-title">${tied ? 'Tied score.' : `${escape(players[0].name)} ${state.mode === 'single' ? 'completed the round.' : 'wins.'}`}</p><div class="result-scores">${players.map((p,i)=>`<div class="result-player ${p.color} ${i===0&&!tied?'winner':''}"><small>${escape(p.name)}</small><strong>${p.score.toLocaleString()}<span> PTS</span></strong><p>${p.hits} hits · ${p.kills} cleared</p></div>`).join('')}</div><button class="primary" data-next ${state.persistence!=='saved'?'disabled':''}>Next group ${icon('arrow')}</button><p class="result-note">${state.persistence==='saved'?'Scores saved.':state.persistence==='error'?'Score saving failed. Retrying automatically…':'Saving scores…'}</p></div><div class="results-turkey sprite tom" aria-hidden="true"></div>`;
+    $('banner').innerHTML = `<div class="results-copy"><p class="eyebrow">${icon('trophy')} ROUND RESULTS</p><h2>${headline}</h2><p class="winner-title">${tied ? 'Tied score.' : `${escape(players[0].name)} ${state.mode === 'single' ? 'completed the round.' : 'wins.'}`}</p><div class="result-scores">${players.map((p,i)=>`<div class="result-player ${p.color} ${i===0&&!tied?'winner':''}"><small>${escape(p.name)}</small><strong>${p.score.toLocaleString()}<span> PTS</span></strong><p>${p.kills} cleared · ${p.mistakes || 0} mistakes</p><small>Best streak: ${p.bestStreak || 0}</small></div>`).join('')}</div><button class="primary" data-next ${state.persistence!=='saved'?'disabled':''}>Next group ${icon('arrow')}</button><p class="result-note">${state.persistence==='saved'?'Scores saved.':state.persistence==='error'?'Score saving failed. Retrying automatically…':'Saving scores…'}</p></div><div class="results-turkey sprite tom" aria-hidden="true"></div>`;
   }
 }
 function renderPresence() {
@@ -179,7 +180,10 @@ function render(hit) {
   for (const c of ['green','red']) {
     const p = state.players[c]; $('' + c + '-name').textContent = p.name || (c === 'green' ? 'Green hunter' : 'Red hunter');
     $('player-' + c).classList.toggle('off-turn', state.phase === 'playing' && (state.mode === 'single' ? c !== state.singleColor : state.mode === 'alternating' && c !== state.turn)); $(c + '-score').textContent = p.score;
-    $(c + '-hits').textContent = `${p.hits} hits · ${p.kills} cleared`;
+    $(c + '-hits').textContent = `${p.kills} cleared · ${p.mistakes || 0} mistakes`;
+    $(c + '-multiplier').textContent = `×${scoreMultiplier(p.streak)}`;
+    $(c + '-streak').textContent = `${p.streak || 0} streak`;
+    $('player-'+c).classList.toggle('hot-streak', scoreMultiplier(p.streak) > 1);
     if (lastRound !== state.roundId || !$('name-' + c).dataset.dirty) $('name-' + c).value = p.name;
     if (lastRound !== state.roundId) delete $('name-' + c).dataset.dirty;
   }
@@ -190,8 +194,8 @@ function render(hit) {
   renderPresence();
   $('save-status').textContent = state.phase !== 'results' && state.persistence === 'saved' ? 'Scanner pages stay connected between groups.' : state.persistence === 'saved' ? 'Completed scores saved.' : state.persistence === 'saving' ? 'Saving completed scores…' : 'Score saving failed. Keep the server running; retrying automatically.';
   if (hit) {
-    $('hit-feedback').textContent = `${state.players[hit.color].name} · +${hit.points} · ${art[hit.code].name}${hit.killed ? ' · cleared' : ` · ${hit.hp} ${hit.hp === 1 ? 'hit' : 'hits'} to clear`}`;
-    const player = $('player-'+hit.color); clearTimeout(player.scoreTimer); player.classList.add('scored'); player.scoreTimer = setTimeout(() => player.classList.remove('scored'), 300);
+    $('hit-feedback').textContent = hit.kind === 'penalty' ? `${state.players[hit.color].name} · hold fire · ${hit.points} points · streak reset` : `${state.players[hit.color].name} · +${hit.points} · ${art[hit.code].name} · ×${hit.multiplier}`;
+    const player = $('player-'+hit.color); clearTimeout(player.scoreTimer); player.classList.add('scored'); player.classList.toggle('mistake', hit.kind === 'penalty'); player.scoreTimer = setTimeout(() => player.classList.remove('scored','mistake'), 400);
   }
   renderBoard();
   if (previousPhase !== state.phase) {
@@ -200,7 +204,7 @@ function render(hit) {
     if (state.phase === 'playing') document.querySelector('.arena').focus({ preventScroll: true });
   }
   if (previousPhase && previousPhase !== state.phase) sound.play(state.phase === 'playing' ? 'start' : state.phase === 'results' ? 'results' : '');
-  if (hit) sound.play(hit.killed ? 'clear' : 'hit');
+  if (hit) sound.play(hit.kind === 'penalty' ? 'penalty' : 'clear', hit.multiplier);
   previousPhase = state.phase;
 }
 socket.on('connect', () => { connected = true; scene?.connection(false); $('connection').textContent = 'Connected'; $('connection').className = 'badge'; updateCapture(); sendPresence(); });

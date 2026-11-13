@@ -1,10 +1,10 @@
-import { encounterPose } from '/encounters.js';
+import { encounterPose, CLEAR_MS } from '/encounters.js';
 import { targets } from '/views.js';
 
-export function createScene({ reducedMotion = false } = {}) {
+export function createScene({ reducedMotion = false, onSafe = () => {} } = {}) {
   const $ = id => document.getElementById(id);
   const creature = $('creature'), patch = $('scan-patch'), image = $('animal-code');
-  let snapshot, connection = false, appearance = '', loadedCode = '', lastPhase = '', lastHp = '', hitTimer;
+  let snapshot, connection = false, appearance = '', loadedCode = '', lastPhase = '', lastOutcome = '', hitTimer;
   image.onload = () => { loadedCode = image.getAttribute('src'); };
   image.onerror = () => { loadedCode = ''; patch.hidden = true; };
   return {
@@ -18,35 +18,43 @@ export function createScene({ reducedMotion = false } = {}) {
       const art = targets[target.code];
       creature.hidden = false;
       if (appearance !== encounter.id) {
-        appearance = encounter.id; lastPhase = ''; lastHp = '';
+        appearance = encounter.id; lastPhase = ''; lastOutcome = '';
         creature.dataset.code = target.code; creature.dataset.spawn = target.spawnId;
-        creature.classList.remove('hit', 'cleared-hit'); $('damage').hidden = true;
+        creature.dataset.action = target.action;
+        creature.classList.remove('hit', 'cleared-hit', 'mistake', 'safe', 'escaped'); $('damage').hidden = true;
+        creature.classList.toggle('golden', target.code === 'TKY4');
+        document.querySelector('.arena').classList.remove('mistake');
         clearTimeout(hitTimer);
         $('animal-art').className = `animal sprite ${art.art}`;
-        creature.setAttribute('aria-label', `${art.name}, ${target.hp} hits remaining, ${target.points} points per hit`);
+        creature.setAttribute('aria-label', target.action === 'shoot' ? `${art.name}, one scan, ${target.points} base points` : `${art.name}, hold fire, ${target.penalty} point penalty for scanning`);
         const src = `/qr/${target.code}.svg`;
         if (image.getAttribute('src') !== src) { loadedCode = ''; patch.hidden = true; image.src = src; }
-        image.alt = `Scan the patch on ${art.name}`;
+        image.alt = target.action === 'shoot' ? `Scan the patch on ${art.name}` : `Code on ${art.name}. Hold fire.`;
         $('animal-name').textContent = art.name;
+        $('animal-health').textContent = target.action === 'shoot' ? 'SCAN' : 'HOLD FIRE';
+        $('animal-points').textContent = target.action === 'shoot' ? `+${target.points} × your multiplier` : `−${target.penalty} for scanning · streak resets`;
       }
-      const hp = `${target.code}:${target.hp}`;
       creature.dataset.hp = target.hp;
-      if (lastHp !== hp) {
-        lastHp = hp;
-        creature.setAttribute('aria-label', `${art.name}, ${target.hp} hits remaining, ${target.points} points per hit`);
-        $('animal-health').innerHTML = Array.from({ length: target.maxHp }, (_, i) => `<i class="${i < target.hp ? 'full' : ''}"></i>`).join('');
-        $('animal-health').setAttribute('aria-label', `${target.hp} of ${target.maxHp} health remaining`);
-        $('animal-points').textContent = `${target.hp} ${target.hp === 1 ? 'hit' : 'hits'} left · +${target.points} per hit`;
-      }
       // Apply authoritative visibility synchronously, before any animation frame.
       if (!target.active) patch.hidden = true;
       if (hit && hit.code === target.code) {
-        creature.style.setProperty('--hit', hit.color === 'green' ? '#d5f39a' : '#ffc3a2');
-        clearTimeout(hitTimer); creature.classList.remove('hit', 'cleared-hit');
+        const mistake = hit.kind === 'penalty';
+        creature.style.setProperty('--hit', mistake ? '#ffc3a2' : hit.color === 'green' ? '#d5f39a' : '#ffc3a2');
+        clearTimeout(hitTimer); creature.classList.remove('hit', 'cleared-hit', 'mistake', 'safe', 'escaped');
         creature.querySelectorAll('.impact-feathers, .damage, .animal').forEach(node => node.getAnimations().forEach(animation => animation.cancel()));
-        creature.classList.add('hit'); creature.classList.toggle('cleared-hit', hit.killed);
-        $('damage').textContent = `+${hit.points}`; $('damage').hidden = false;
-        hitTimer = setTimeout(() => { creature.classList.remove('hit', 'cleared-hit'); $('damage').hidden = true; }, 750);
+        creature.classList.add(mistake ? 'mistake' : 'hit'); creature.classList.toggle('cleared-hit', hit.killed);
+        document.querySelector('.arena').classList.toggle('mistake', mistake);
+        $('damage').textContent = mistake ? hit.points < 0 ? `−${-hit.points}` : 'HOLD FIRE' : `+${hit.points}${hit.multiplier > 1 ? ' ×'+hit.multiplier : ''}`;
+        $('damage').hidden = false;
+        hitTimer = setTimeout(() => { creature.classList.remove('hit', 'cleared-hit', 'mistake'); document.querySelector('.arena').classList.remove('mistake'); $('damage').hidden = true; }, mistake ? 400 : CLEAR_MS);
+      }
+      if (encounter.outcome && encounter.outcome !== lastOutcome) {
+        lastOutcome = encounter.outcome;
+        if (lastOutcome === 'safe') {
+          creature.classList.add('safe'); $('damage').textContent = '✓'; $('damage').hidden = false; onSafe();
+        } else if (lastOutcome === 'escaped' && target.action === 'shoot') {
+          creature.classList.add('escaped'); $('damage').textContent = 'ESCAPED'; $('damage').hidden = false;
+        }
       }
       this.frame(state.serverNow);
     },
@@ -65,7 +73,7 @@ export function createScene({ reducedMotion = false } = {}) {
       if (lastPhase !== pose.phase) {
         lastPhase = pose.phase;
         $('encounter-cue').textContent = pose.phase === 'quiet' || pose.phase === 'cleared' ? '' : targets[target.code].call;
-        $('encounter-tag').textContent = 'TARGET';
+        $('encounter-tag').textContent = target.action === 'avoid' ? 'PROTECTED WILDLIFE' : target.code === 'TKY4' ? 'BONUS TARGET' : 'TARGET';
       }
       $('window-fill').style.transform = `scaleX(${Math.max(0, Math.min(1, (encounter.concealAt - now) / (encounter.concealAt - encounter.revealAt)))})`;
     }

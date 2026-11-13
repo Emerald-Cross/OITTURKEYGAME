@@ -1,23 +1,11 @@
-# Verification — November 9, 2026
+# Verification — quick-draw rules
 
-`npm run check` passes **21 tests** locally and in CI on Node 24.22.1. This includes the complete encounter timeline, exact reveal/conceal boundaries, the one-active-target invariant across a full round, shared health, repeated shots without cooldown, duplicate deliveries, retained damage, stale appearance rejection, clearing and returning at full health, modes, deadlines, reset, scanner capture, real WebSockets, reconnect, HTTP, persistence, and diagnostics.
+`npm run check` runs 27 engine, real WebSocket, HTTP, storage, and capture tests. These cover one-scan clears, race winners, gold points, streak thresholds/cap/reset, once-per-color wildlife penalties, a zero score floor, safe holds, duplicate and stale deliveries, exact exposure and round boundaries, shuffled bag balance, the 1.25-second handoff, alternating/solo play, reset, ruleset-filtered storage, and the existing scanner buffer.
 
-The full Chromium suite passed in [Game checks run 42688670300](https://github.com/Emerald-Cross/OITTURKEYGAME/actions/runs/42688670300), on source commit `da002967eaee4e417cf45c0c5f73987b637c4d54`. Local Chromium cannot start under this workspace’s Unix-socket restrictions, so browser verification ran on the repository’s runner.
+`npm run test:browser` uses actual Chromium and the real server with a controlled test clock. It exercises keyboard scanner input, one-scan clear visibility, duplicate/race handling, gold art, shoot/hold-fire labels, score multipliers, protected-animal penalties, help isolation, clean holds, expiry without a server packet, scanner and TV reconnection, multiple TVs, fullscreen, deadline, modes, results/reset, escaped names, optional sound, reduced motion, and mobile capture.
 
-## Browser coverage
+The visual checks inspect all four animal types through all four paths at 1920×1080, 1440×900, and 390×844. Exactly one square QR must be visible; its entire quiet zone must fit the scene and remain clear of labels, scores, hints, and controls. Filters on the QR and its ancestors must remain disabled, including for gold turkeys. Moving sprites must not use body clipping or masks. QR width is checked at a minimum 440 px at 1080p and 370 px at 1440×900.
 
-- Exactly one visible QR, integrated into the current animal’s body. Its grid is square and still throughout the reveal, with no tint or image filter.
-- All eight consecutive encounter variants checked at **1920 × 1080**, **1440 × 900**, and **390 × 844**. The full QR and quiet zone fit inside the scene. Animal labels, hints, scores, and controls do not overlap the code.
-- QR width at least **440 px on a 1080p TV** (approximately 460 px with the default layout), and at least **370 px at 1440 × 900**.
-- Hidden animals cannot score. The TV hides an expired code locally even before a concealment packet arrives. Lethal damage removes the code immediately; nonlethal damage preserves the scan area.
-- Both capture pages receive Enter-terminated scans. Repeated hits, shared health, duplicate delivery, help-dialog isolation, damage retention across hiding, and stale appearances are verified.
-- Scanner and TV reconnection recover authoritative state. A second TV joins the same encounter. A reconnecting TV waits for a fresh snapshot before revealing its code.
-- The hard deadline works with camp open; results, score saving, next-group reset, alternating turns, red solo play, escaped names, fullscreen, and reduced motion pass.
+The existing read-only CI workflow runs these checks and captures screenshots in the `turkey-hunt-screens` artifact. Local Chromium is blocked by this workspace's Unix-socket policy, so browser rendering runs in CI. Set `TURKEY_SCREENSHOT_DIR` to capture images when running locally.
 
-The workflow captures the woodland lobby, camp, each animal’s exposed body code, feather hits, results, fullscreen play, mobile gallery, and mobile scanner. Download the `turkey-hunt-screens` artifact from the linked run. Screenshots are captured in Chromium; automated geometry checks verify layout.
-
-## Physical rehearsal
-
-The original QR SVGs and scanner buffer are unchanged. A physical scanner or event TV was not available for this update. Check the new code patches at the actual playing distance and confirm the 5.2–7.2 second exposure windows suit the scanners. Software timings exclude optical decoding and physical TV response.
-
-The woodland animates the existing illustrated sprites through a CSS 3D perspective scene. No hosting settings or score-storage configuration were changed.
+A physical scanner and event TV are not available here. Rehearse one-scan claims, choosing not to scan deer/bears, the new handoff pace, and wildlife penalty behavior with the actual scanners. Software checks do not measure optical decoding or physical TV latency, and a user playtest is still needed to judge the new loop's fun.

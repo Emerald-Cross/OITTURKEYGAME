@@ -26,3 +26,9 @@ The feather favicon and small interface icons are native SVG. Typography uses lo
 `public/assets/woodland-cover.svg` is a native vector foreground extension: ochre/rust leaf crowns, a shaded tree trunk, and olive undergrowth matched to the original landscape palette. Mirrored foreground edges, a vector/CSS stump, grass silhouettes, warm haze, and ground shadows frame the clearing. The original background and animal atlas are reused without image edits. CSS perspective provides depth for illustrated animal billboards; these are layered illustrations, not volumetric animal models.
 
 The TV fills the viewport in all phases. Camp uses a modal notebook for settings, scanner status, diagnostics, and saved scores. The body patch is a regular square QR with its original quiet zone; decorative feather edges remain outside the white scan area. Hit puffs and floating point feedback do not cover an active QR.
+
+## Reaction targets and impacts
+
+The fan-tailed turkey is now a gold bonus target using a filter on the animal sprite only. The deer atlas cell is also used as a full-size hold-fire animal, with a newly generated `DEER` QR. Existing TKY1, TKY4, and BEAR QR files are unchanged. All four retain the original white quiet zone and square black/white grid.
+
+A turkey clear uses a larger feather puff, expanding ring, departing sprite, and large point pop after the QR is hidden. Wildlife mistakes keep the code visible, show the point loss above it, and briefly mark the screen edge. A safe hold shows a check mark during retreat. Animal calls stay simple; gameplay instructions and results are plain text.

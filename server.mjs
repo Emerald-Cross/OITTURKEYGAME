@@ -4,11 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import { readFile } from 'node:fs/promises';
 import { EventServer } from './lib/transport.mjs';
-import { Game, COLORS } from './lib/game.mjs';
+import { Game, COLORS, RULESET } from './lib/game.mjs';
 import { ScoreStore } from './lib/scores.mjs';
 const root = dirname(fileURLToPath(import.meta.url));
 
-export async function createRuntime({ dataDir = resolve(root, 'data'), clock = Date.now, scores: suppliedScores } = {}) {
+export async function createRuntime({ dataDir = resolve(root, 'data'), clock = Date.now, random = Math.random, scores: suppliedScores } = {}) {
   const scores = suppliedScores || await new ScoreStore(dataDir).init();
   const app = async (req, res) => {
     res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -36,7 +36,7 @@ export async function createRuntime({ dataDir = resolve(root, 'data'), clock = D
     const peers = [...stations.values()].filter(s => s.color === color);
     return [color, { connected: peers.length, focused: peers.some(p => p.focused), armed: peers.some(p => p.armed) }];
   }));
-  const snapshot = () => ({ ...game.snapshot(), presence: presence(), leaderboard: scores.board(), persistence: scores.status });
+  const snapshot = () => ({ ...game.snapshot(), presence: presence(), leaderboard: scores.board(RULESET), persistence: scores.status });
   const publish = extra => io.broadcast('state', { state: snapshot(), ...extra });
   let saving = null;
   const save = round => {
@@ -44,7 +44,7 @@ export async function createRuntime({ dataDir = resolve(root, 'data'), clock = D
       console.error('Scores could not be saved. Check DATA_DIR permissions/disk space.'); publish();
     });
   };
-  const game = new Game({ clock, onFinish: round => { save(round); } });
+  const game = new Game({ clock, random, onFinish: round => { save(round); } });
   io.use((socket, next) => {
     const { role, color } = socket.handshake.auth;
     if (role !== 'gallery' && !(role === 'station' && COLORS.includes(color))) return next(Error('Choose the gallery or a valid scanner.'));
